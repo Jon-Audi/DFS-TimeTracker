@@ -4,22 +4,18 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack-query-firebase/react/data-connect";
+import { dataConnect } from "@/lib/dataconnect";
+import { queries } from "@firebasegen/default-connector/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LogIn, BrainCircuit } from "lucide-react";
+import { LogIn, BrainCircuit, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 
-// In a real app, this would come from a database
-const users = [
-  { id: 'admin', name: 'Admin User', role: 'admin', pin: '1234' },
-  { id: 'emp1', name: 'John Doe', role: 'employee', pin: '1111' },
-  { id: 'emp2', name: 'Jane Smith', role: 'employee', pin: '2222' },
-  { id: 'emp3', name: 'Peter Jones', role: 'employee', pin: '3333' },
-];
 
 export default function LoginPage() {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
@@ -27,15 +23,17 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
 
+  const { data: users, isLoading } = useQuery(dataConnect, queries.listUsers);
+
   const handleLogin = () => {
-    if (!selectedUserId) return;
+    if (!selectedUserId || !users) return;
     
-    const user = users.find(u => u.id === selectedUserId);
+    const user = users.find(u => u.employeeId === selectedUserId);
     if (user && user.pin === pin) {
-      if (user.role === 'admin') {
+      if (user.role === 'Admin') {
         router.push('/admin');
       } else {
-        router.push(`/employee`);
+        router.push(`/employee?employeeId=${user.employeeId}`);
       }
     } else {
       toast({
@@ -63,16 +61,23 @@ export default function LoginPage() {
         <CardContent className="flex flex-col gap-6">
           <div className="grid w-full items-center gap-1.5">
             <Label htmlFor="user-select">Select User</Label>
-            <Select onValueChange={setSelectedUserId}>
+             <Select onValueChange={setSelectedUserId} disabled={isLoading}>
               <SelectTrigger id="user-select">
-                <SelectValue placeholder="Select your name" />
+                <SelectValue placeholder={isLoading ? "Loading users..." : "Select your name"} />
               </SelectTrigger>
               <SelectContent>
-                {users.map(user => (
-                  <SelectItem key={user.id} value={user.id}>
-                    {user.name}
-                  </SelectItem>
-                ))}
+                {isLoading ? (
+                    <div className="flex items-center justify-center p-4">
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        <span>Loading...</span>
+                    </div>
+                ) : (
+                  users?.map(user => (
+                    <SelectItem key={user.employeeId} value={user.employeeId}>
+                      {user.name}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -88,6 +93,7 @@ export default function LoginPage() {
                 maxLength={4}
                 placeholder="Enter your 4-digit PIN"
                 onKeyDown={handleKeyPress}
+                autoFocus
               />
             </div>
           )}

@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { UserPlus } from "lucide-react";
+import { UserPlus, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -19,49 +19,83 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useMutation, useQuery, useQueryClient } from "@tanstack-query-firebase/react/data-connect";
+import { dataConnect } from "@/lib/dataconnect";
+import { mutations, queries } from "@firebasegen/default-connector/react";
+import { useToast } from "@/hooks/use-toast";
+import { startOfWeek, endOfWeek, differenceInSeconds } from 'date-fns';
 
+type EmployeeRole = 'Yard' | 'Sales' | 'Management' | 'Admin';
 
-type Employee = {
-  id: string;
-  name: string;
-  role: 'Yard' | 'Sales' | 'Management' | 'Admin';
-  status: 'Clocked In' | 'Clocked Out';
-  totalHours: number;
-  pin: string;
-};
-
-// Mock data, to be replaced with real data later
-const initialEmployees: Employee[] = [
-    { id: 'emp1', name: 'John Doe', role: 'Yard', status: 'Clocked Out', totalHours: 40.5, pin: '1111' },
-    { id: 'emp2', name: 'Jane Smith', role: 'Sales', status: 'Clocked In', totalHours: 38.0, pin: '2222' },
-    { id: 'emp3', name: 'Peter Jones', role: 'Management', status: 'Clocked Out', totalHours: 42.25, pin: '3333' },
-];
 
 export default function AdminDashboard() {
-  const [employees, setEmployees] = useState<Employee[]>(initialEmployees);
   const [newEmployeeName, setNewEmployeeName] = useState("");
-  const [newEmployeeRole, setNewEmployeeRole] = useState<'Yard' | 'Sales' | 'Management' | 'Admin'>();
+  const [newEmployeeRole, setNewEmployeeRole] = useState<EmployeeRole>();
   const [newEmployeePin, setNewEmployeePin] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: employees, isLoading: isLoadingEmployees } = useQuery(dataConnect, queries.listEmployeesWithStatus);
+
+  const { mutate: addEmployee, isPending: isAddingEmployee } = useMutation(dataConnect, mutations.createEmployee, {
+    onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: [queries.listEmployeesWithStatus.queryKey] });
+        toast({
+            title: "Success",
+            description: "New employee has been added.",
+        });
+        setNewEmployeeName("");
+        setNewEmployeeRole(undefined);
+        setNewEmployeePin("");
+        setIsDialogOpen(false);
+    },
+    onError: (error) => {
+         toast({
+            title: "Error",
+            description: error.message,
+            variant: "destructive",
+        });
+    }
+  });
 
   const handleAddEmployee = () => {
     if (newEmployeeName && newEmployeeRole && newEmployeePin.match(/^\d{4}$/)) {
-      const newEmployee: Employee = {
-        id: `emp${employees.length + 2}`, // simple id generation
-        name: newEmployeeName,
-        role: newEmployeeRole,
-        status: 'Clocked Out',
-        totalHours: 0,
-        pin: newEmployeePin,
-      };
-      setEmployees([...employees, newEmployee]);
-      // Reset form
-      setNewEmployeeName("");
-      setNewEmployeeRole(undefined);
-      setNewEmployeePin("");
-      setIsDialogOpen(false);
+        addEmployee({
+            name: newEmployeeName,
+            role: newEmployeeRole,
+            pin: newEmployeePin,
+        });
     }
   };
+  
+  const calculateWeeklyHours = (timeEntries: readonly { clockIn: any, clockOut: any }[] | null | undefined) => {
+    if (!timeEntries) return 0;
+
+    const now = new Date();
+    const weekStart = startOfWeek(now, { weekStartsOn: 0 });
+    const weekEnd = endOfWeek(now, { weekStartsOn: 0 });
+
+    const weeklyEntries = timeEntries.filter(entry => {
+        const clockInDate = new Date(entry.clockIn);
+        return clockInDate >= weekStart && clockInDate <= weekEnd;
+    });
+
+    return weeklyEntries.reduce((total, entry) => {
+        if (entry.clockOut) {
+            const clockInDate = new Date(entry.clockIn);
+            const clockOutDate = new Date(entry.clockOut);
+            return total + differenceInSeconds(clockOutDate, clockInDate);
+        }
+        return total;
+    }, 0) / 3600;
+  };
+
+  const getStatus = (timeEntries: readonly { clockIn: any, clockOut: any }[] | null | undefined) => {
+    if (!timeEntries || timeEntries.length === 0) return 'Clocked Out';
+    const latestEntry = timeEntries[0];
+    return latestEntry.clockOut ? 'Clocked Out' : 'Clocked In';
+  }
 
 
   return (
@@ -100,7 +134,7 @@ export default function AdminDashboard() {
                   <Label htmlFor="role" className="text-right">
                     Role
                   </Label>
-                   <Select onValueChange={(value: any) => setNewEmployeeRole(value)}>
+                   <Select onValueChange={(value: EmployeeRole) => setNewEmployeeRole(value)}>
                       <SelectTrigger className="col-span-3">
                         <SelectValue placeholder="Select a role" />
                       </SelectTrigger>
@@ -131,7 +165,8 @@ export default function AdminDashboard() {
                  <DialogClose asChild>
                     <Button variant="outline">Cancel</Button>
                   </DialogClose>
-                <Button onClick={handleAddEmployee} disabled={!newEmployeeName || !newEmployeeRole || !newEmployeePin.match(/^\d{4}$/)}>
+                <Button onClick={handleAddEmployee} disabled={isAddingEmployee || !newEmployeeName || !newEmployeeRole || !newEmployeePin.match(/^\d{4}$/)}>
+                  {isAddingEmployee && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Save Employee
                 </Button>
               </DialogFooter>
@@ -156,18 +191,36 @@ export default function AdminDashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {employees.map((employee) => (
-                    <TableRow key={employee.id}>
-                      <TableCell className="font-medium">{employee.name}</TableCell>
-                      <TableCell>{employee.role}</TableCell>
-                      <TableCell>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${employee.status === 'Clocked In' ? 'bg-accent/20 text-accent' : 'bg-muted'}`}>
-                          {employee.status}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">{employee.totalHours.toFixed(2)}</TableCell>
+                  {isLoadingEmployees ? (
+                    <TableRow>
+                        <TableCell colSpan={4} className="h-24 text-center">
+                            <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
+                        </TableCell>
                     </TableRow>
-                  ))}
+                  ) : employees && employees.length > 0 ? (
+                    employees.map((employee) => {
+                      const status = getStatus(employee.timeEntries);
+                      const totalHours = calculateWeeklyHours(employee.timeEntries);
+                      return (
+                        <TableRow key={employee.employeeId}>
+                          <TableCell className="font-medium">{employee.name}</TableCell>
+                          <TableCell>{employee.role}</TableCell>
+                          <TableCell>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${status === 'Clocked In' ? 'bg-accent/20 text-accent' : 'bg-muted'}`}>
+                              {status}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right">{totalHours.toFixed(2)}</TableCell>
+                        </TableRow>
+                      );
+                    })
+                  ) : (
+                     <TableRow>
+                        <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                            No employees found. Add one to get started.
+                        </TableCell>
+                     </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
