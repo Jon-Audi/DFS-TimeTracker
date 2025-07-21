@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState } from "react";
@@ -24,7 +23,7 @@ export default function LoginPage() {
   const { toast } = useToast();
 
   const { data: users, isLoading } = useQuery({
-    queryKey: queries.listUsers.queryKey(),
+    ...queries.listUsers.getOptions(),
     queryFn: () => queries.listUsers(dataConnect)
   });
 

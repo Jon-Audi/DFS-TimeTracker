@@ -37,14 +37,14 @@ export default function AdminDashboard() {
   const queryClient = useQueryClient();
 
   const { data: employees, isLoading: isLoadingEmployees } = useQuery({
-    queryKey: queries.listEmployeesWithStatus.queryKey(),
+    ...queries.listEmployeesWithStatus.getOptions(),
     queryFn: () => queries.listEmployeesWithStatus(dataConnect)
   });
 
   const { mutate: addEmployee, isPending: isAddingEmployee } = useMutation({
     mutationFn: (vars: typeof mutations.createEmployee.input) => mutations.createEmployee(dataConnect, vars),
     onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: queries.listEmployeesWithStatus.queryKey() });
+        queryClient.invalidateQueries({ queryKey: queries.listEmployeesWithStatus.getOptions().queryKey });
         toast({
             title: "Success",
             description: "New employee has been added.",

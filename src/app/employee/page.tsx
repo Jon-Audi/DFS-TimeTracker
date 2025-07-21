@@ -22,8 +22,9 @@ function EmployeeDashboardContent() {
 
   const [currentTime, setCurrentTime] = useState(new Date());
 
+  const employeeDetailsQueryOptions = queries.getEmployeeDetails.getOptions(employeeId ? { employeeId } : undefined);
   const { data: employeeDetails, isLoading: isLoadingDetails, error: employeeError } = useQuery({
-    queryKey: queries.getEmployeeDetails.queryKey(employeeId ? { employeeId } : undefined),
+    ...employeeDetailsQueryOptions,
     queryFn: () => queries.getEmployeeDetails(dataConnect, { employeeId: employeeId! }),
     enabled: !!employeeId,
   });
@@ -31,14 +32,15 @@ function EmployeeDashboardContent() {
   const currentWeekStart = startOfWeek(currentTime, { weekStartsOn: 0 }); // Sunday
   const currentWeekEnd = endOfWeek(currentTime, { weekStartsOn: 0 });
 
+  const weeklyEntriesQueryOptions = queries.listTimeEntriesForEmployee.getOptions(
+      employeeId ? {
+          employeeId: employeeId!,
+          startTime: currentWeekStart.toISOString(),
+          endTime: currentWeekEnd.toISOString(),
+      } : undefined
+  );
   const { data: weeklyEntries, isLoading: isLoadingEntries } = useQuery({
-    queryKey: queries.listTimeEntriesForEmployee.queryKey(
-        employeeId ? {
-            employeeId: employeeId!,
-            startTime: currentWeekStart.toISOString(),
-            endTime: currentWeekEnd.toISOString(),
-        } : undefined
-    ),
+    ...weeklyEntriesQueryOptions,
     queryFn: () => queries.listTimeEntriesForEmployee(dataConnect, {
       employeeId: employeeId!,
       startTime: currentWeekStart.toISOString(),
@@ -50,19 +52,16 @@ function EmployeeDashboardContent() {
   const { mutate: clockInMutation, isPending: isClockingIn } = useMutation({
     mutationFn: (vars: typeof mutations.clockIn.input) => mutations.clockIn(dataConnect, vars),
     onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: queries.getEmployeeDetails.queryKey({ employeeId: employeeId! }) });
-        queryClient.invalidateQueries({ queryKey: queries.listTimeEntriesForEmployee.queryKey({
-            employeeId: employeeId!,
-            startTime: currentWeekStart.toISOString(),
-            endTime: currentWeekEnd.toISOString(),
-        })});
+        queryClient.invalidateQueries({ queryKey: employeeDetailsQueryOptions.queryKey });
+        queryClient.invalidateQueries({ queryKey: weeklyEntriesQueryOptions.queryKey });
         toast({ title: "Clocked In", description: "Your shift has started." });
     },
     onError: (error) => toast({ title: "Error", description: error.message, variant: "destructive" })
   });
 
+  const latestEntryQueryOptions = queries.getLatestTimeEntry.getOptions(employeeId ? { employeeId } : undefined);
   const { data: latestEntry } = useQuery({
-    queryKey: queries.getLatestTimeEntry.queryKey(employeeId ? { employeeId } : undefined),
+    ...latestEntryQueryOptions,
     queryFn: () => queries.getLatestTimeEntry(dataConnect, { employeeId: employeeId! }),
     enabled: !!employeeId,
   });
@@ -70,12 +69,8 @@ function EmployeeDashboardContent() {
   const { mutate: clockOutMutation, isPending: isClockingOut } = useMutation({
      mutationFn: (vars: typeof mutations.clockOut.input) => mutations.clockOut(dataConnect, vars),
      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: queries.getEmployeeDetails.queryKey({ employeeId: employeeId! }) });
-        queryClient.invalidateQueries({ queryKey: queries.listTimeEntriesForEmployee.queryKey({
-            employeeId: employeeId!,
-            startTime: currentWeekStart.toISOString(),
-            endTime: currentWeekEnd.toISOString(),
-        })});
+        queryClient.invalidateQueries({ queryKey: employeeDetailsQueryOptions.queryKey });
+        queryClient.invalidateQueries({ queryKey: weeklyEntriesQueryOptions.queryKey });
         toast({ title: "Clocked Out", description: "Your shift has ended." });
     },
     onError: (error) => toast({ title: "Error", description: error.message, variant: "destructive" })
