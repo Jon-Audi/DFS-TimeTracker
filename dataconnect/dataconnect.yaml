@@ -10,3 +10,4 @@ schema:
         instanceId: "studio-fdc"
       # schemaValidation: "COMPATIBLE"
 connectorDirs: ["./connector"]
+

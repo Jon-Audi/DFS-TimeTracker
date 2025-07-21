@@ -5,3 +5,7 @@ generate:
     package: "@firebasegen/default-connector"
     packageJsonDir: ../..
     react: true
+operations:
+  sources:
+    - ./Employee.gql
+    - ./TimeEntry.gql
