@@ -1,0 +1,58 @@
+
+enum EmployeeRole {
+  Yard,
+  Sales,
+  Management,
+  Admin
+}
+
+type Employee @table(key: "employeeId") {
+  employeeId: String! @id
+  name: String!
+  role: EmployeeRole!
+  pin: String!
+  timeEntries: [TimeEntry] @relation(on: "employeeId", to: "employeeId")
+}
+
+query listUsers {
+  employees {
+    employeeId
+    name
+    pin
+    role
+  }
+}
+
+query getEmployeeDetails(employeeId: String!) {
+  employees(employeeId: $employeeId) {
+    employeeId
+    name
+    timeEntries(orderBy: { clockIn: "DESC" }, limit: 1) {
+      clockIn
+      clockOut
+    }
+  }
+}
+
+query listEmployeesWithStatus {
+    employees(orderBy: {name: "ASC"}) {
+        employeeId
+        name
+        role
+        timeEntries(orderBy: {clockIn: "DESC"}) {
+            clockIn
+            clockOut
+        }
+    }
+}
+
+mutation createEmployee(name: String!, role: EmployeeRole!, pin: String!) {
+    employees.create({
+        employeeId: id,
+        name: $name,
+        role: $role,
+        pin: $pin,
+    }) {
+        employeeId
+    }
+}

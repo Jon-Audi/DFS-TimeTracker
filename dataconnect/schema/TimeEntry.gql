@@ -1,0 +1,50 @@
+
+type TimeEntry @table(key: "timeEntryId") {
+    timeEntryId: String! @id
+    employeeId: String!
+    clockIn: Timestamp!
+    clockOut: Timestamp
+}
+
+query listTimeEntriesForEmployee(employeeId: String!, startTime: Timestamp!, endTime: Timestamp!) {
+    timeEntries(
+        where: "employeeId == $employeeId && clockIn >= $startTime && clockIn <= $endTime",
+        orderBy: { clockIn: "ASC" }
+    ) {
+        clockIn
+        clockOut
+    }
+}
+
+query getLatestTimeEntry(employeeId: String!) {
+    timeEntries(
+        where: "employeeId == $employeeId",
+        orderBy: { clockIn: "DESC" },
+        limit: 1
+    ) {
+        timeEntryId
+        clockIn
+        clockOut
+    }
+}
+
+mutation clockIn(employeeId: String!) {
+    timeEntries.create({
+        timeEntryId: id,
+        employeeId: $employeeId,
+        clockIn: now
+    }) {
+        timeEntryId
+    }
+}
+
+mutation clockOut(timeEntryId: String!) {
+    timeEntries.update(
+        timeEntryId: $timeEntryId,
+        {
+            clockOut: now
+        }
+    ) {
+        timeEntryId
+    }
+}
