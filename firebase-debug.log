@@ -1,0 +1,8 @@
+[debug] [2025-07-21T17:59:31.688Z] ----------------------------------------------------------------------
+[debug] [2025-07-21T17:59:31.691Z] Command:       /nix/store/ws50yvm6vzlzf7jzz6n7xh4szddrack1-nodejs-20.19.1/bin/node /home/user/.global_modules/bin/firebase dataconnect:sdk:generate --project dfs-timetracker --debug
+[debug] [2025-07-21T17:59:31.691Z] CLI Version:   14.11.0
+[debug] [2025-07-21T17:59:31.692Z] Platform:      linux
+[debug] [2025-07-21T17:59:31.692Z] Node Version:  v20.19.1
+[debug] [2025-07-21T17:59:31.692Z] Time:          Mon Jul 21 2025 17:59:31 GMT+0000 (Coordinated Universal Time)
+[debug] [2025-07-21T17:59:31.692Z] ----------------------------------------------------------------------
+[debug] 

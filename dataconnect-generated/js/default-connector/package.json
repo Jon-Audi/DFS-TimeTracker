@@ -1,7 +1,8 @@
 
 {
   "name": "@firebasegen/default-connector",
-  "main": "./index.js",
-  "module": "./esm/index.esm.js",
-  "types": "./index.d.ts"
+  "version": "0.0.1",
+  "main": "index.js",
+  "typings": "index.d.ts",
+  "private": true
 }
