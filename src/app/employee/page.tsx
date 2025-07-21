@@ -1,8 +1,7 @@
 
-
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack-query-firebase/react/data-connect";
 import { dataConnect } from "@/lib/dataconnect";
@@ -14,10 +13,6 @@ import { LogIn, LogOut, Clock, Printer, Loader2 } from "lucide-react";
 import { format, startOfWeek, endOfWeek, differenceInSeconds } from 'date-fns';
 import { useToast } from "@/hooks/use-toast";
 
-type TimeEntry = {
-  clockIn: any;
-  clockOut: any | null;
-};
 
 function EmployeeDashboardContent() {
   const searchParams = useSearchParams();
@@ -27,38 +22,60 @@ function EmployeeDashboardContent() {
 
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  const { data: employeeDetails, isLoading: isLoadingDetails } = useQuery(dataConnect, queries.getEmployeeDetails, {
-      employeeId: employeeId!,
-    },
-    { enabled: !!employeeId }
-  );
-  
+  const { data: employeeDetails, isLoading: isLoadingDetails, error: employeeError } = useQuery({
+    queryKey: queries.getEmployeeDetails.queryKey(employeeId ? { employeeId } : undefined),
+    queryFn: () => queries.getEmployeeDetails(dataConnect, { employeeId: employeeId! }),
+    enabled: !!employeeId,
+  });
+
   const currentWeekStart = startOfWeek(currentTime, { weekStartsOn: 0 }); // Sunday
   const currentWeekEnd = endOfWeek(currentTime, { weekStartsOn: 0 });
 
-  const { data: weeklyEntries, isLoading: isLoadingEntries } = useQuery(dataConnect, queries.listTimeEntriesForEmployee, {
+  const { data: weeklyEntries, isLoading: isLoadingEntries } = useQuery({
+    queryKey: queries.listTimeEntriesForEmployee.queryKey(
+        employeeId ? {
+            employeeId: employeeId!,
+            startTime: currentWeekStart.toISOString(),
+            endTime: currentWeekEnd.toISOString(),
+        } : undefined
+    ),
+    queryFn: () => queries.listTimeEntriesForEmployee(dataConnect, {
       employeeId: employeeId!,
       startTime: currentWeekStart.toISOString(),
       endTime: currentWeekEnd.toISOString(),
-    },
-    { enabled: !!employeeId }
-  );
+    }),
+    enabled: !!employeeId,
+  });
 
-  const { mutate: clockInMutation, isPending: isClockingIn } = useMutation(dataConnect, mutations.clockIn, {
+  const { mutate: clockInMutation, isPending: isClockingIn } = useMutation({
+    mutationFn: (vars: typeof mutations.clockIn.input) => mutations.clockIn(dataConnect, vars),
     onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: queries.getEmployeeDetails.queryKey });
-        queryClient.invalidateQueries({ queryKey: queries.listTimeEntriesForEmployee.queryKey });
+        queryClient.invalidateQueries({ queryKey: queries.getEmployeeDetails.queryKey({ employeeId: employeeId! }) });
+        queryClient.invalidateQueries({ queryKey: queries.listTimeEntriesForEmployee.queryKey({
+            employeeId: employeeId!,
+            startTime: currentWeekStart.toISOString(),
+            endTime: currentWeekEnd.toISOString(),
+        })});
         toast({ title: "Clocked In", description: "Your shift has started." });
     },
     onError: (error) => toast({ title: "Error", description: error.message, variant: "destructive" })
   });
-  
-  const { data: latestEntry } = useQuery(dataConnect, queries.getLatestTimeEntry, { employeeId: employeeId! }, { enabled: !!employeeId });
 
-  const { mutate: clockOutMutation, isPending: isClockingOut } = useMutation(dataConnect, mutations.clockOut, {
+  const { data: latestEntry } = useQuery({
+    queryKey: queries.getLatestTimeEntry.queryKey(employeeId ? { employeeId } : undefined),
+    queryFn: () => queries.getLatestTimeEntry(dataConnect, { employeeId: employeeId! }),
+    enabled: !!employeeId,
+  });
+
+  const { mutate: clockOutMutation, isPending: isClockingOut } = useMutation({
+     mutationFn: (vars: typeof mutations.clockOut.input) => mutations.clockOut(dataConnect, vars),
      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: queries.getEmployeeDetails.queryKey });
-        queryClient.invalidateQueries({ queryKey: queries.listTimeEntriesForEmployee.queryKey });
+        queryClient.invalidateQueries({ queryKey: queries.getEmployeeDetails.queryKey({ employeeId: employeeId! }) });
+        queryClient.invalidateQueries({ queryKey: queries.listTimeEntriesForEmployee.queryKey({
+            employeeId: employeeId!,
+            startTime: currentWeekStart.toISOString(),
+            endTime: currentWeekEnd.toISOString(),
+        })});
         toast({ title: "Clocked Out", description: "Your shift has ended." });
     },
     onError: (error) => toast({ title: "Error", description: error.message, variant: "destructive" })
@@ -73,12 +90,20 @@ function EmployeeDashboardContent() {
   if (isLoadingDetails) {
      return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-10 w-10 animate-spin" /></div>;
   }
+  
+  if (!employeeId) {
+     return <div className="min-h-screen flex items-center justify-center"><p>No employee ID provided.</p></div>
+  }
+  
+  if (employeeError) {
+     return <div className="min-h-screen flex items-center justify-center"><p>Error loading employee: {employeeError.message}</p></div>
+  }
 
-  if (!employeeId || !employeeDetails) {
+  if (!employeeDetails) {
      return <div className="min-h-screen flex items-center justify-center"><p>Employee not found.</p></div>
   }
   
-  const lastEntry = employeeDetails.timeEntries?.[0];
+  const lastEntry = employeeDetails?.timeEntries?.[0];
   const isClockedIn = lastEntry ? !lastEntry.clockOut : false;
 
   const handleClockToggle = () => {
@@ -215,8 +240,8 @@ function EmployeeDashboardContent() {
 
 export default function EmployeeDashboard() {
   return (
-    <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="h-10 w-10 animate-spin" /></div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="h-10 w-10 animate-spin" /></div>}>
       <EmployeeDashboardContent />
-    </React.Suspense>
+    </Suspense>
   )
 }

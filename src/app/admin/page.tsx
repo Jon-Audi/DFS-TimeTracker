@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -36,11 +36,15 @@ export default function AdminDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: employees, isLoading: isLoadingEmployees } = useQuery(dataConnect, queries.listEmployeesWithStatus);
+  const { data: employees, isLoading: isLoadingEmployees } = useQuery({
+    queryKey: queries.listEmployeesWithStatus.queryKey(),
+    queryFn: () => queries.listEmployeesWithStatus(dataConnect, {})
+  });
 
-  const { mutate: addEmployee, isPending: isAddingEmployee } = useMutation(dataConnect, mutations.createEmployee, {
+  const { mutate: addEmployee, isPending: isAddingEmployee } = useMutation({
+    mutationFn: (vars: typeof mutations.createEmployee.input) => mutations.createEmployee(dataConnect, vars),
     onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: queries.listEmployeesWithStatus.queryKey });
+        queryClient.invalidateQueries({ queryKey: queries.listEmployeesWithStatus.queryKey() });
         toast({
             title: "Success",
             description: "New employee has been added.",
