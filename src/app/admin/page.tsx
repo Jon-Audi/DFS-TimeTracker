@@ -19,7 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useMutation, useQuery, useQueryClient } from "@tanstack-query-firebase/react/data-connect";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { dataConnect } from "@/lib/dataconnect";
 import { mutations, queries } from "@firebasegen/default-connector/react";
 import { useToast } from "@/hooks/use-toast";
@@ -38,7 +38,7 @@ export default function AdminDashboard() {
 
   const { data: employees, isLoading: isLoadingEmployees } = useQuery({
     queryKey: queries.listEmployeesWithStatus.queryKey(),
-    queryFn: () => queries.listEmployeesWithStatus(dataConnect, {})
+    queryFn: () => queries.listEmployeesWithStatus(dataConnect)
   });
 
   const { mutate: addEmployee, isPending: isAddingEmployee } = useMutation({

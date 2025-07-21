@@ -4,7 +4,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack-query-firebase/react/data-connect";
+import { useQuery } from "@tanstack/react-query";
 import { dataConnect } from "@/lib/dataconnect";
 import { queries } from "@firebasegen/default-connector/react";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,7 @@ export default function LoginPage() {
 
   const { data: users, isLoading } = useQuery({
     queryKey: queries.listUsers.queryKey(),
-    queryFn: () => queries.listUsers(dataConnect, {})
+    queryFn: () => queries.listUsers(dataConnect)
   });
 
   const handleLogin = () => {

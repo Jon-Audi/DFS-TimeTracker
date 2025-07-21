@@ -1,0 +1,38 @@
+
+type TimeEntry @table(name: "time_entries") {
+    timeEntryId: String! @column(name: "time_entry_id", primaryKey: true)
+    employeeId: String! @column(name: "employee_id")
+    clockIn: Timestamp! @column(name: "clock_in")
+    clockOut: Timestamp @column(name: "clock_out")
+    employee: Employee @foreignKey(columns: ["employeeId"], references: ["employeeId"])
+}
+
+extend type Query {
+    listTimeEntriesForEmployee(employeeId: String!, startTime: Timestamp, endTime: Timestamp): [TimeEntry!]
+        @materializedView(
+            query: """
+            SELECT *
+            FROM time_entries
+            WHERE employee_id = $employeeId AND
+                  ($startTime IS NULL OR clock_in >= $startTime) AND
+                  ($endTime IS NULL OR clock_in <= $endTime)
+            ORDER BY clock_in DESC
+            """
+        )
+
+    getLatestTimeEntry(employeeId: String!): TimeEntry
+        @materializedView(
+            query: """
+            SELECT *
+            FROM time_entries
+            WHERE employee_id = $employeeId
+            ORDER BY clock_in DESC
+            LIMIT 1
+            """
+        )
+}
+
+extend type Mutation {
+    clockIn(employeeId: String!): TimeEntry! @insert(table: "time_entries", default: {timeEntryId: "gen_random_uuid()", clockIn: "now()"})
+    clockOut(timeEntryId: String!): TimeEntry @update(table: "time_entries", input: {clockOut: "now()"})
+}

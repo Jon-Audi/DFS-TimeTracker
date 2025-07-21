@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { useQuery, useMutation, useQueryClient } from "@tanstack-query-firebase/react/data-connect";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { dataConnect } from "@/lib/dataconnect";
 import { queries, mutations } from "@firebasegen/default-connector/react";
 import { Button } from "@/components/ui/button";
