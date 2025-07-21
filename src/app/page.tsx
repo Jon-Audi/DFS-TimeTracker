@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState } from "react";
@@ -8,8 +9,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LogIn } from "lucide-react";
+import { LogIn, BrainCircuit } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import Link from "next/link";
 
 // In a real app, this would come from a database
 const users = [
@@ -94,6 +96,25 @@ export default function LoginPage() {
             <LogIn className="mr-2" />
             Login
           </Button>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">
+                Or try our AI demo
+              </span>
+            </div>
+          </div>
+
+          <Button variant="outline" asChild>
+              <Link href="/ai-demo">
+                <BrainCircuit className="mr-2" />
+                AI Demo
+              </Link>
+          </Button>
+          
         </CardContent>
       </Card>
        <footer className="text-center text-muted-foreground mt-8 text-sm">
