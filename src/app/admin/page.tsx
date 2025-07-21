@@ -40,7 +40,7 @@ export default function AdminDashboard() {
 
   const { mutate: addEmployee, isPending: isAddingEmployee } = useMutation(dataConnect, mutations.createEmployee, {
     onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: [queries.listEmployeesWithStatus.queryKey] });
+        queryClient.invalidateQueries({ queryKey: queries.listEmployeesWithStatus.queryKey });
         toast({
             title: "Success",
             description: "New employee has been added.",
@@ -206,7 +206,7 @@ export default function AdminDashboard() {
                           <TableCell className="font-medium">{employee.name}</TableCell>
                           <TableCell>{employee.role}</TableCell>
                           <TableCell>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${status === 'Clocked In' ? 'bg-accent/20 text-accent' : 'bg-muted'}`}>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${status === 'Clocked In' ? 'bg-accent/20 text-accent-foreground' : 'bg-muted text-muted-foreground'}`}>
                               {status}
                             </span>
                           </TableCell>

@@ -1,16 +1,19 @@
+import { Employee } from './Employee';
 
 type TimeEntry @table(key: "timeEntryId") {
-    timeEntryId: String! @id
+    timeEntryId: String! @id(from: "cuid2")
     employeeId: String!
+    employee: Employee @foreignKey(field: "employeeId")
     clockIn: Timestamp!
     clockOut: Timestamp
 }
 
-query listTimeEntriesForEmployee(employeeId: String!, startTime: Timestamp!, endTime: Timestamp!) {
+query listTimeEntriesForEmployee(employeeId: String!, startTime: Timestamp, endTime: Timestamp) {
     timeEntries(
-        where: "employeeId == $employeeId && clockIn >= $startTime && clockIn <= $endTime",
-        orderBy: { clockIn: "ASC" }
+        where: { employeeId: { eq: employeeId }, clockIn: { gte: startTime, lte: endTime } }
+        orderBy: [{ clockIn: "DESC" }]
     ) {
+        timeEntryId
         clockIn
         clockOut
     }
@@ -18,8 +21,8 @@ query listTimeEntriesForEmployee(employeeId: String!, startTime: Timestamp!, end
 
 query getLatestTimeEntry(employeeId: String!) {
     timeEntries(
-        where: "employeeId == $employeeId",
-        orderBy: { clockIn: "DESC" },
+        where: { employeeId: { eq: employeeId } }
+        orderBy: [{ clockIn: "DESC" }]
         limit: 1
     ) {
         timeEntryId
@@ -29,20 +32,21 @@ query getLatestTimeEntry(employeeId: String!) {
 }
 
 mutation clockIn(employeeId: String!) {
-    timeEntries.create({
-        timeEntryId: id,
-        employeeId: $employeeId,
-        clockIn: now
-    }) {
+    createTimeEntry(
+        timeEntry: {
+            employeeId: employeeId,
+            clockIn: "now()"
+        }
+    ) {
         timeEntryId
     }
 }
 
 mutation clockOut(timeEntryId: String!) {
-    timeEntries.update(
-        timeEntryId: $timeEntryId,
-        {
-            clockOut: now
+    updateTimeEntry(
+        timeEntryId: timeEntryId,
+        timeEntry: {
+            clockOut: "now()"
         }
     ) {
         timeEntryId
