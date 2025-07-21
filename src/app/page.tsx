@@ -14,6 +14,7 @@ const users = [
   { id: 'admin', name: 'Admin User', role: 'admin' },
   { id: 'emp1', name: 'John Doe', role: 'employee' },
   { id: 'emp2', name: 'Jane Smith', role: 'employee' },
+  { id: 'emp3', name: 'Peter Jones', role: 'employee' },
 ];
 
 export default function LoginPage() {
