@@ -205,7 +205,6 @@ export default function Home() {
                       )}
                     </TableBody>
                   </Table>
-                </Table>
                 </div>
               </CardContent>
             </Card>
