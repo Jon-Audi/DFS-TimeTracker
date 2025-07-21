@@ -27,34 +27,38 @@ type Employee = {
   role: 'Yard' | 'Sales' | 'Management' | 'Admin';
   status: 'Clocked In' | 'Clocked Out';
   totalHours: number;
+  pin: string;
 };
 
 // Mock data, to be replaced with real data later
 const initialEmployees: Employee[] = [
-    { id: 'emp1', name: 'John Doe', role: 'Yard', status: 'Clocked Out', totalHours: 40.5 },
-    { id: 'emp2', name: 'Jane Smith', role: 'Sales', status: 'Clocked In', totalHours: 38.0 },
-    { id: 'emp3', name: 'Peter Jones', role: 'Management', status: 'Clocked Out', totalHours: 42.25 },
+    { id: 'emp1', name: 'John Doe', role: 'Yard', status: 'Clocked Out', totalHours: 40.5, pin: '1111' },
+    { id: 'emp2', name: 'Jane Smith', role: 'Sales', status: 'Clocked In', totalHours: 38.0, pin: '2222' },
+    { id: 'emp3', name: 'Peter Jones', role: 'Management', status: 'Clocked Out', totalHours: 42.25, pin: '3333' },
 ];
 
 export default function AdminDashboard() {
   const [employees, setEmployees] = useState<Employee[]>(initialEmployees);
   const [newEmployeeName, setNewEmployeeName] = useState("");
-  const [newEmployeeRole, setNewEmployeeRole] = useState<'Yard' | 'Sales' | 'Management'>();
+  const [newEmployeeRole, setNewEmployeeRole] = useState<'Yard' | 'Sales' | 'Management' | 'Admin'>();
+  const [newEmployeePin, setNewEmployeePin] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const handleAddEmployee = () => {
-    if (newEmployeeName && newEmployeeRole) {
+    if (newEmployeeName && newEmployeeRole && newEmployeePin.match(/^\d{4}$/)) {
       const newEmployee: Employee = {
         id: `emp${employees.length + 2}`, // simple id generation
         name: newEmployeeName,
         role: newEmployeeRole,
         status: 'Clocked Out',
         totalHours: 0,
+        pin: newEmployeePin,
       };
       setEmployees([...employees, newEmployee]);
       // Reset form
       setNewEmployeeName("");
       setNewEmployeeRole(undefined);
+      setNewEmployeePin("");
       setIsDialogOpen(false);
     }
   };
@@ -104,15 +108,30 @@ export default function AdminDashboard() {
                         <SelectItem value="Yard">Yard</SelectItem>
                         <SelectItem value="Sales">Sales</SelectItem>
                         <SelectItem value="Management">Management</SelectItem>
+                        <SelectItem value="Admin">Admin</SelectItem>
                       </SelectContent>
                     </Select>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="pin" className="text-right">
+                    PIN
+                  </Label>
+                  <Input
+                    id="pin"
+                    type="password"
+                    maxLength={4}
+                    value={newEmployeePin}
+                    onChange={(e) => setNewEmployeePin(e.target.value)}
+                    className="col-span-3"
+                    placeholder="4-digit PIN"
+                  />
                 </div>
               </div>
               <DialogFooter>
                  <DialogClose asChild>
                     <Button variant="outline">Cancel</Button>
                   </DialogClose>
-                <Button onClick={handleAddEmployee} disabled={!newEmployeeName || !newEmployeeRole}>
+                <Button onClick={handleAddEmployee} disabled={!newEmployeeName || !newEmployeeRole || !newEmployeePin.match(/^\d{4}$/)}>
                   Save Employee
                 </Button>
               </DialogFooter>
