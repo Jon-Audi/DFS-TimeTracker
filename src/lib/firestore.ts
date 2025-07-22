@@ -13,7 +13,8 @@ import {
     limit,
     Timestamp,
     updateDoc,
-    serverTimestamp
+    serverTimestamp,
+    writeBatch
 } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -45,8 +46,33 @@ export interface TimeEntry {
     clockOut: Timestamp | null;
 }
 
+// One-time function to ensure admin user exists
+const ensureAdminUserExists = async () => {
+    const adminName = "Jon Audiffred";
+    const adminPin = "2895";
+    const employeesRef = collection(db, 'employees');
+    const q = query(employeesRef, where("name", "==", adminName), where("role", "==", "Admin"), limit(1));
+    
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
+        console.log("Admin user not found, creating one...");
+        try {
+            await addDoc(employeesRef, {
+                name: adminName,
+                pin: adminPin,
+                role: 'Admin'
+            });
+            console.log("Admin user 'Jon Audiffred' created successfully.");
+        } catch (error) {
+            console.error("Error creating admin user:", error);
+        }
+    }
+};
+
 // Functions for Login Page
 export const listUsers = async (): Promise<Employee[]> => {
+    await ensureAdminUserExists(); // Ensure admin exists before listing users
     const employeesCol = collection(db, 'employees');
     const employeeSnapshot = await getDocs(employeesCol);
     const employeeList = employeeSnapshot.docs.map(doc => ({ employeeId: doc.id, ...doc.data() } as Employee));
