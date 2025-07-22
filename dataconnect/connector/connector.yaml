@@ -3,7 +3,7 @@ generate:
   javascriptSdk:
     outputDir: ../../dataconnect-generated/js/default-connector
     packageJsonDir: ../..
-    package: "@firebasegen/default-connector"
+    package: '@firebasegen/default-connector'
     react: true
 operations:
   sources:
