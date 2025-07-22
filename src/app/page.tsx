@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { listUsers, ensureAdminExists } from "@/lib/firestore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -18,40 +18,28 @@ export default function LoginPage() {
   const [pin, setPin] = useState("");
   const router = useRouter();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
 
-  // State to manage the initial setup process
-  const [isInitializing, setIsInitializing] = useState(true);
-
-  useEffect(() => {
-    const setupAdminAndFetchUsers = async () => {
-      try {
-        await ensureAdminExists();
-        // Once admin check is complete, trigger a fetch of the users
-        await queryClient.refetchQueries({ queryKey: ['users'] });
-      } catch (error) {
-        console.error("Error during initialization:", error);
-        toast({
-          title: "Initialization Failed",
-          description: "Could not set up initial user data. Please refresh.",
-          variant: "destructive",
-        });
-      } finally {
-        setIsInitializing(false);
-      }
-    };
-    setupAdminAndFetchUsers();
-  }, [queryClient, toast]);
-
-  const { data: users, isLoading: isLoadingUsers } = useQuery({
+  const { data: users, isLoading: isLoadingUsers, error } = useQuery({
     queryKey: ['users'],
-    queryFn: listUsers,
-    // Disable the query from running automatically on mount
-    // We will trigger it manually after the admin check.
-    enabled: false, 
+    queryFn: async () => {
+        try {
+            await ensureAdminExists();
+            const userList = await listUsers();
+            return userList;
+        } catch (err) {
+            console.error("Failed to setup and fetch users:", err);
+            toast({
+                title: "Error",
+                description: "Could not load user data. Please refresh the page.",
+                variant: "destructive",
+            });
+            throw err; // re-throw error for react-query
+        }
+    },
+    // staleTime ensures we don't refetch immediately on refocus, 
+    // since the user list doesn't change often.
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
-  
-  const isLoading = isInitializing || isLoadingUsers;
 
   const handleLogin = () => {
     if (!selectedUserId || !users) return;
@@ -79,6 +67,21 @@ export default function LoginPage() {
     }
   };
 
+  if (error) {
+      return (
+        <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-4">
+             <Card className="w-full max-w-sm shadow-2xl">
+                <CardHeader className="text-center">
+                    <CardTitle className="text-2xl text-destructive">Failed to Load</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-center text-muted-foreground">There was an error loading application data. Please try refreshing the page.</p>
+                </CardContent>
+            </Card>
+        </div>
+      )
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-4">
       <Card className="w-full max-w-sm shadow-2xl">
@@ -89,12 +92,12 @@ export default function LoginPage() {
         <CardContent className="flex flex-col gap-6">
           <div className="grid w-full items-center gap-1.5">
             <Label htmlFor="user-select">Select User</Label>
-             <Select onValueChange={setSelectedUserId} disabled={isLoading}>
+             <Select onValueChange={setSelectedUserId} disabled={isLoadingUsers}>
               <SelectTrigger id="user-select">
-                <SelectValue placeholder={isLoading ? "Loading users..." : "Select your name"} />
+                <SelectValue placeholder={isLoadingUsers ? "Loading users..." : "Select your name"} />
               </SelectTrigger>
               <SelectContent>
-                {isLoading ? (
+                {isLoadingUsers ? (
                     <div className="flex items-center justify-center p-4">
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         <span>Loading...</span>
@@ -126,8 +129,8 @@ export default function LoginPage() {
             </div>
           )}
 
-          <Button onClick={handleLogin} disabled={!selectedUserId || pin.length !== 4 || isLoading} className="w-full h-11 text-lg">
-            <LogIn className="mr-2" />
+          <Button onClick={handleLogin} disabled={!selectedUserId || pin.length !== 4 || isLoadingUsers} className="w-full h-11 text-lg">
+            {isLoadingUsers ? <Loader2 className="mr-2 animate-spin" /> : <LogIn className="mr-2" />}
             Login
           </Button>
           
