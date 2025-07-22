@@ -1,6 +1,17 @@
 {
   "name": "@firebasegen/default-connector",
-  "main": "./index.js",
-  "typings": "./index.d.ts",
-  "private": true
+  "private": true,
+  "main": "esm/index.js",
+  "module": "esm/index.js",
+  "types": "esm/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./esm/index.js",
+      "require": "./esm/index.js"
+    },
+    "./react": {
+      "import": "./react/index.js",
+      "require": "./react/index.js"
+    }
+  }
 }
