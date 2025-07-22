@@ -3,9 +3,9 @@
 
 import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { dataConnect } from "@/lib/dataconnect";
-import { queries, mutations } from "@firebasegen/default-connector/react";
+// import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+// import { dataConnect } from "@/lib/dataconnect";
+// import { queries, mutations } from "@firebasegen/default-connector/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -18,63 +18,75 @@ function EmployeeDashboardContent() {
   const searchParams = useSearchParams();
   const employeeId = searchParams.get("employeeId");
   const { toast } = useToast();
-  const queryClient = useQueryClient();
+  // const queryClient = useQueryClient();
 
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  const employeeDetailsQueryOptions = queries.getEmployeeDetails.getOptions(employeeId ? { employeeId } : undefined);
-  const { data: employeeDetails, isLoading: isLoadingDetails, error: employeeError } = useQuery({
-    ...employeeDetailsQueryOptions,
-    queryFn: () => queries.getEmployeeDetails(dataConnect, { employeeId: employeeId! }),
-    enabled: !!employeeId,
-  });
+  // const employeeDetailsQueryOptions = queries.getEmployeeDetails.getOptions(employeeId ? { employeeId } : undefined);
+  // const { data: employeeDetails, isLoading: isLoadingDetails, error: employeeError } = useQuery({
+  //   ...employeeDetailsQueryOptions,
+  //   queryFn: () => queries.getEmployeeDetails(dataConnect, { employeeId: employeeId! }),
+  //   enabled: !!employeeId,
+  // });
+  const { data: employeeDetails, isLoading: isLoadingDetails, error: employeeError } = {
+    data: { name: "Demo User", timeEntries: []},
+    isLoading: false,
+    error: null
+  };
+
 
   const currentWeekStart = startOfWeek(currentTime, { weekStartsOn: 0 }); // Sunday
   const currentWeekEnd = endOfWeek(currentTime, { weekStartsOn: 0 });
 
-  const weeklyEntriesQueryOptions = queries.listTimeEntriesForEmployee.getOptions(
-      employeeId ? {
-          employeeId: employeeId!,
-          startTime: currentWeekStart.toISOString(),
-          endTime: currentWeekEnd.toISOString(),
-      } : undefined
-  );
-  const { data: weeklyEntries, isLoading: isLoadingEntries } = useQuery({
-    ...weeklyEntriesQueryOptions,
-    queryFn: () => queries.listTimeEntriesForEmployee(dataConnect, {
-      employeeId: employeeId!,
-      startTime: currentWeekStart.toISOString(),
-      endTime: currentWeekEnd.toISOString(),
-    }),
-    enabled: !!employeeId,
-  });
+  // const weeklyEntriesQueryOptions = queries.listTimeEntriesForEmployee.getOptions(
+  //     employeeId ? {
+  //         employeeId: employeeId!,
+  //         startTime: currentWeekStart.toISOString(),
+  //         endTime: currentWeekEnd.toISOString(),
+  //     } : undefined
+  // );
+  // const { data: weeklyEntries, isLoading: isLoadingEntries } = useQuery({
+  //   ...weeklyEntriesQueryOptions,
+  //   queryFn: () => queries.listTimeEntriesForEmployee(dataConnect, {
+  //     employeeId: employeeId!,
+  //     startTime: currentWeekStart.toISOString(),
+  //     endTime: currentWeekEnd.toISOString(),
+  //   }),
+  //   enabled: !!employeeId,
+  // });
+  const { data: weeklyEntries, isLoading: isLoadingEntries } = { data: [], isLoading: false};
 
-  const { mutate: clockInMutation, isPending: isClockingIn } = useMutation({
-    mutationFn: (vars: typeof mutations.clockIn.input) => mutations.clockIn(dataConnect, vars),
-    onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: employeeDetailsQueryOptions.queryKey });
-        queryClient.invalidateQueries({ queryKey: weeklyEntriesQueryOptions.queryKey });
-        toast({ title: "Clocked In", description: "Your shift has started." });
-    },
-    onError: (error) => toast({ title: "Error", description: error.message, variant: "destructive" })
-  });
 
-  const latestEntryQueryOptions = queries.getLatestTimeEntry.getOptions(employeeId ? { employeeId } : undefined);
-  const { data: latestEntry } = useQuery({
-    ...latestEntryQueryOptions,
-    queryFn: () => queries.getLatestTimeEntry(dataConnect, { employeeId: employeeId! }),
-    enabled: !!employeeId,
-  });
+  // const { mutate: clockInMutation, isPending: isClockingIn } = useMutation({
+  //   mutationFn: (vars: typeof mutations.clockIn.input) => mutations.clockIn(dataConnect, vars),
+  //   onSuccess: () => {
+  //       queryClient.invalidateQueries({ queryKey: employeeDetailsQueryOptions.queryKey });
+  //       queryClient.invalidateQueries({ queryKey: weeklyEntriesQueryOptions.queryKey });
+  //       toast({ title: "Clocked In", description: "Your shift has started." });
+  //   },
+  //   onError: (error) => toast({ title: "Error", description: error.message, variant: "destructive" })
+  // });
+  const isClockingIn = false;
 
-  const { mutate: clockOutMutation, isPending: isClockingOut } = useMutation({
-     mutationFn: (vars: typeof mutations.clockOut.input) => mutations.clockOut(dataConnect, vars),
-     onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: employeeDetailsQueryOptions.queryKey });
-        queryClient.invalidateQueries({ queryKey: weeklyEntriesQueryOptions.queryKey });
-        toast({ title: "Clocked Out", description: "Your shift has ended." });
-    },
-    onError: (error) => toast({ title: "Error", description: error.message, variant: "destructive" })
-  });
+  // const latestEntryQueryOptions = queries.getLatestTimeEntry.getOptions(employeeId ? { employeeId } : undefined);
+  // const { data: latestEntry } = useQuery({
+  //   ...latestEntryQueryOptions,
+  //   queryFn: () => queries.getLatestTimeEntry(dataConnect, { employeeId: employeeId! }),
+  //   enabled: !!employeeId,
+  // });
+  const { data: latestEntry } = { data: null };
+
+
+  // const { mutate: clockOutMutation, isPending: isClockingOut } = useMutation({
+  //    mutationFn: (vars: typeof mutations.clockOut.input) => mutations.clockOut(dataConnect, vars),
+  //    onSuccess: () => {
+  //       queryClient.invalidateQueries({ queryKey: employeeDetailsQueryOptions.queryKey });
+  //       queryClient.invalidateQueries({ queryKey: weeklyEntriesQueryOptions.queryKey });
+  //       toast({ title: "Clocked Out", description: "Your shift has ended." });
+  //   },
+  //   onError: (error) => toast({ title: "Error", description: error.message, variant: "destructive" })
+  // });
+  const isClockingOut = false;
 
 
   useEffect(() => {
@@ -102,16 +114,17 @@ function EmployeeDashboardContent() {
   const isClockedIn = lastEntry ? !lastEntry.clockOut : false;
 
   const handleClockToggle = () => {
-    if (isClockedIn) {
-        const latestTimeEntryId = latestEntry?.timeEntryId;
-        if (latestTimeEntryId) {
-            clockOutMutation({ timeEntryId: latestTimeEntryId });
-        } else {
-             toast({ title: "Error", description: "Cannot find entry to clock out.", variant: "destructive" })
-        }
-    } else {
-        clockInMutation({ employeeId });
-    }
+    toast({ title: "Coming Soon!", description: "Clock-in/out will be enabled soon." });
+    // if (isClockedIn) {
+    //     const latestTimeEntryId = latestEntry?.timeEntryId;
+    //     if (latestTimeEntryId) {
+    //         clockOutMutation({ timeEntryId: latestTimeEntryId });
+    //     } else {
+    //          toast({ title: "Error", description: "Cannot find entry to clock out.", variant: "destructive" })
+    //     }
+    // } else {
+    //     clockInMutation({ employeeId });
+    // }
   };
 
   const calculateDuration = (start: any, end: any | null): number => {

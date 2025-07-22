@@ -3,9 +3,9 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
-import { dataConnect } from "@/lib/dataconnect";
-import { queries } from "@firebasegen/default-connector/react";
+// import { useQuery } from "@tanstack/react-query";
+// import { dataConnect } from "@/lib/dataconnect";
+// import { queries } from "@firebasegen/default-connector/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -22,10 +22,18 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const { data: users, isLoading } = useQuery({
-    ...queries.listUsers.getOptions(),
-    queryFn: () => queries.listUsers(dataConnect)
-  });
+  // const { data: users, isLoading } = useQuery({
+  //   ...queries.listUsers.getOptions(),
+  //   queryFn: () => queries.listUsers(dataConnect)
+  // });
+  const { data: users, isLoading } = { 
+    data: [
+      { employeeId: "1", name: "Admin User", pin: "1234", role: "Admin" },
+      { employeeId: "2", name: "Employee User", pin: "5678", role: "Yard" },
+    ], 
+    isLoading: false 
+  };
+
 
   const handleLogin = () => {
     if (!selectedUserId || !users) return;

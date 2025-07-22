@@ -19,9 +19,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { dataConnect } from "@/lib/dataconnect";
-import { mutations, queries } from "@firebasegen/default-connector/react";
+// import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+// import { dataConnect } from "@/lib/dataconnect";
+// import { mutations, queries } from "@firebasegen/default-connector/react";
 import { useToast } from "@/hooks/use-toast";
 import { startOfWeek, endOfWeek, differenceInSeconds } from 'date-fns';
 
@@ -34,41 +34,49 @@ export default function AdminDashboard() {
   const [newEmployeePin, setNewEmployeePin] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
-  const queryClient = useQueryClient();
+  // const queryClient = useQueryClient();
 
-  const { data: employees, isLoading: isLoadingEmployees } = useQuery({
-    ...queries.listEmployeesWithStatus.getOptions(),
-    queryFn: () => queries.listEmployeesWithStatus(dataConnect)
-  });
+  // const { data: employees, isLoading: isLoadingEmployees } = useQuery({
+  //   ...queries.listEmployeesWithStatus.getOptions(),
+  //   queryFn: () => queries.listEmployeesWithStatus(dataConnect)
+  // });
+  const employees: any[] = [];
+  const isLoadingEmployees = false;
 
-  const { mutate: addEmployee, isPending: isAddingEmployee } = useMutation({
-    mutationFn: (vars: typeof mutations.createEmployee.input) => mutations.createEmployee(dataConnect, vars),
-    onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: queries.listEmployeesWithStatus.getOptions().queryKey });
-        toast({
-            title: "Success",
-            description: "New employee has been added.",
-        });
-        setNewEmployeeName("");
-        setNewEmployeeRole(undefined);
-        setNewEmployeePin("");
-        setIsDialogOpen(false);
-    },
-    onError: (error) => {
-         toast({
-            title: "Error",
-            description: error.message,
-            variant: "destructive",
-        });
-    }
-  });
+
+  // const { mutate: addEmployee, isPending: isAddingEmployee } = useMutation({
+  //   mutationFn: (vars: typeof mutations.createEmployee.input) => mutations.createEmployee(dataConnect, vars),
+  //   onSuccess: () => {
+  //       queryClient.invalidateQueries({ queryKey: queries.listEmployeesWithStatus.getOptions().queryKey });
+  //       toast({
+  //           title: "Success",
+  //           description: "New employee has been added.",
+  //       });
+  //       setNewEmployeeName("");
+  //       setNewEmployeeRole(undefined);
+  //       setNewEmployeePin("");
+  //       setIsDialogOpen(false);
+  //   },
+  //   onError: (error) => {
+  //        toast({
+  //           title: "Error",
+  //           description: error.message,
+  //           variant: "destructive",
+  //       });
+  //   }
+  // });
+  const isAddingEmployee = false;
 
   const handleAddEmployee = () => {
     if (newEmployeeName && newEmployeeRole && newEmployeePin.match(/^\d{4}$/)) {
-        addEmployee({
-            name: newEmployeeName,
-            role: newEmployeeRole,
-            pin: newEmployeePin,
+        // addEmployee({
+        //     name: newEmployeeName,
+        //     role: newEmployeeRole,
+        //     pin: newEmployeePin,
+        // });
+         toast({
+            title: "Coming Soon!",
+            description: "Adding employees will be enabled soon.",
         });
     }
   };

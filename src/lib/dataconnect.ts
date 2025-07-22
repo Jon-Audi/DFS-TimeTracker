@@ -1,7 +1,7 @@
 
 import { initializeApp } from 'firebase/app';
 import { connectDataConnectEmulator, getDataConnect } from 'firebase/data-connect';
-import { connectorConfig } from '@firebasegen/default-connector';
+// import { connectorConfig } from '@firebasegen/default-connector';
 import { getAnalytics } from "firebase/analytics";
 
 const firebaseConfig = {
@@ -19,7 +19,8 @@ if (typeof window !== 'undefined') {
   getAnalytics(app);
 }
 
-export const dataConnect = getDataConnect(app, connectorConfig);
+// @ts-ignore
+export const dataConnect = getDataConnect(app, {}); //connectorConfig);
 
 if (process.env.NODE_ENV === 'development') {
     try {
