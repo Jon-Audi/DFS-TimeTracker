@@ -210,7 +210,7 @@ export default function AdminDashboard() {
                           <TableCell className="font-medium">{employee.name}</TableCell>
                           <TableCell>{employee.role}</TableCell>
                           <TableCell>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${status === 'Clocked In' ? 'bg-accent/20 text-accent-foreground' : 'bg-muted text-muted-foreground'}`}>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${status === 'Clocked In' ? 'bg-accent/20 text-accent' : 'bg-muted text-muted-foreground'}`}>
                               {status}
                             </span>
                           </TableCell>

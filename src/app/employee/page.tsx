@@ -47,20 +47,21 @@ function EmployeeDashboardContent() {
     enabled: !!employeeId,
   });
 
+  const { data: latestEntry, refetch: refetchLatestEntry } = useQuery({
+    queryKey: ['latestEntry', employeeId],
+    queryFn: () => getLatestTimeEntry(employeeId!),
+    enabled: !!employeeId,
+  });
+
   const { mutate: clockInMutation, isPending: isClockingIn } = useMutation({
     mutationFn: clockIn,
     onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ['employeeDetails', employeeId] });
         queryClient.invalidateQueries({ queryKey: ['weeklyEntries', employeeId, currentWeekStart.toISOString()] });
+        refetchLatestEntry();
         toast({ title: "Clocked In", description: "Your shift has started." });
     },
     onError: (error) => toast({ title: "Error", description: error.message, variant: "destructive" })
-  });
-
-  const { data: latestEntry } = useQuery({
-    queryKey: ['latestEntry', employeeId],
-    queryFn: () => getLatestTimeEntry(employeeId!),
-    enabled: !!employeeId,
   });
 
   const { mutate: clockOutMutation, isPending: isClockingOut } = useMutation({
@@ -68,6 +69,7 @@ function EmployeeDashboardContent() {
      onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ['employeeDetails', employeeId] });
         queryClient.invalidateQueries({ queryKey: ['weeklyEntries', employeeId, currentWeekStart.toISOString()] });
+        refetchLatestEntry();
         toast({ title: "Clocked Out", description: "Your shift has ended." });
     },
     onError: (error) => toast({ title: "Error", description: error.message, variant: "destructive" })
@@ -95,18 +97,19 @@ function EmployeeDashboardContent() {
      return <div className="min-h-screen flex items-center justify-center"><p>Employee not found.</p></div>
   }
   
-  const lastEntry = latestEntry;
-  const isClockedIn = lastEntry ? !lastEntry.clockOut : false;
+  const isClockedIn = latestEntry ? !latestEntry.clockOut : false;
 
   const handleClockToggle = () => {
     if (isClockedIn) {
-        if (latestEntry?.timeEntryId) {
-            clockOutMutation({ timeEntryId: latestEntry.timeEntryId });
+        if (latestEntry?.timeEntryId && employeeId) {
+            clockOutMutation({ employeeId: employeeId, timeEntryId: latestEntry.timeEntryId });
         } else {
              toast({ title: "Error", description: "Cannot find entry to clock out.", variant: "destructive" })
         }
     } else {
-        clockInMutation({ employeeId });
+       if (employeeId) {
+          clockInMutation({ employeeId });
+       }
     }
   };
 

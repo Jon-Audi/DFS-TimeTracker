@@ -13,8 +13,7 @@ import {
     limit,
     Timestamp,
     updateDoc,
-    serverTimestamp,
-    writeBatch
+    serverTimestamp
 } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -139,21 +138,18 @@ export const clockIn = async ({ employeeId }: { employeeId: string }): Promise<v
     });
 };
 
-export const clockOut = async ({ timeEntryId }: { timeEntryId: string }): Promise<void> => {
-    // We need to find the employeeId from the timeEntryId.
-    // This is not efficient, but for this structure it's needed.
-    // A better structure might be to have a single timeEntries collection.
-    const employeesCol = collection(db, 'employees');
-    const employeeSnapshot = await getDocs(employeesCol);
-    for (const employeeDoc of employeeSnapshot.docs) {
-        const timeEntryRef = doc(db, `employees/${employeeDoc.id}/timeEntries`, timeEntryId);
-        const timeEntrySnap = await getDoc(timeEntryRef);
-        if (timeEntrySnap.exists()) {
-             await updateDoc(timeEntryRef, {
-                clockOut: serverTimestamp()
-            });
-            return;
-        }
+export const clockOut = async ({ employeeId, timeEntryId }: { employeeId: string, timeEntryId: string }): Promise<void> => {
+    if (!employeeId || !timeEntryId) {
+        throw new Error("Employee ID and Time Entry ID are required to clock out.");
     }
-    throw new Error("Time entry not found to clock out.");
+    const timeEntryRef = doc(db, `employees/${employeeId}/timeEntries`, timeEntryId);
+    const timeEntrySnap = await getDoc(timeEntryRef);
+
+    if (timeEntrySnap.exists()) {
+        await updateDoc(timeEntryRef, {
+            clockOut: serverTimestamp()
+        });
+    } else {
+        throw new Error("Time entry not found to clock out.");
+    }
 };
