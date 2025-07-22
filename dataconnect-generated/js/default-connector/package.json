@@ -1,19 +1,6 @@
-
 {
   "name": "@firebasegen/default-connector",
-  "version": "0.0.1",
-  "main": "index.js",
-  "typings": "index.d.ts",
-  "react-native": "react-native/index.js",
-  "exports": {
-    ".": {
-      "types": "./index.d.ts",
-      "react-native": "./react-native/index.js",
-      "default": "./index.js"
-    },
-    "./react": {
-      "types": "./react/index.d.ts",
-      "default": "./react/index.js"
-    }
-  }
+  "main": "./index.js",
+  "typings": "./index.d.ts",
+  "private": true
 }

@@ -1,10 +1,9 @@
-
-connectorId: default
+connectorId: default-connector
 generate:
   javascriptSdk:
     outputDir: ../../dataconnect-generated/js/default-connector
-    package: "@firebasegen/default-connector"
     packageJsonDir: ../..
+    package: "@firebasegen/default-connector"
     react: true
 operations:
   sources:
