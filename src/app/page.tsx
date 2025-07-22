@@ -10,10 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LogIn, BrainCircuit, Loader2 } from "lucide-react";
+import { LogIn, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import Link from "next/link";
-
 
 export default function LoginPage() {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
@@ -22,21 +20,38 @@ export default function LoginPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  useEffect(() => {
-    const setupAdmin = async () => {
-        const adminCreated = await ensureAdminExists();
-        if (adminCreated) {
-            console.log('Admin user check complete. Refetching users.');
-            queryClient.invalidateQueries({ queryKey: ['users'] });
-        }
-    };
-    setupAdmin();
-  }, [queryClient]);
+  // State to manage the initial setup process
+  const [isInitializing, setIsInitializing] = useState(true);
 
-  const { data: users, isLoading } = useQuery({
+  useEffect(() => {
+    const setupAdminAndFetchUsers = async () => {
+      try {
+        await ensureAdminExists();
+        // Once admin check is complete, trigger a fetch of the users
+        await queryClient.refetchQueries({ queryKey: ['users'] });
+      } catch (error) {
+        console.error("Error during initialization:", error);
+        toast({
+          title: "Initialization Failed",
+          description: "Could not set up initial user data. Please refresh.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsInitializing(false);
+      }
+    };
+    setupAdminAndFetchUsers();
+  }, [queryClient, toast]);
+
+  const { data: users, isLoading: isLoadingUsers } = useQuery({
     queryKey: ['users'],
-    queryFn: listUsers
+    queryFn: listUsers,
+    // Disable the query from running automatically on mount
+    // We will trigger it manually after the admin check.
+    enabled: false, 
   });
+  
+  const isLoading = isInitializing || isLoadingUsers;
 
   const handleLogin = () => {
     if (!selectedUserId || !users) return;
@@ -111,27 +126,9 @@ export default function LoginPage() {
             </div>
           )}
 
-          <Button onClick={handleLogin} disabled={!selectedUserId || pin.length !== 4} className="w-full h-11 text-lg">
+          <Button onClick={handleLogin} disabled={!selectedUserId || pin.length !== 4 || isLoading} className="w-full h-11 text-lg">
             <LogIn className="mr-2" />
             Login
-          </Button>
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">
-                Or try our AI demo
-              </span>
-            </div>
-          </div>
-
-          <Button variant="outline" asChild>
-              <Link href="/ai-demo">
-                <BrainCircuit className="mr-2" />
-                AI Demo
-              </Link>
           </Button>
           
         </CardContent>
