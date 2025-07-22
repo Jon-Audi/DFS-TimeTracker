@@ -1,10 +1,10 @@
 
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
-import { listUsers } from "@/lib/firestore";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { listUsers, ensureAdminExists } from "@/lib/firestore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -20,6 +20,18 @@ export default function LoginPage() {
   const [pin, setPin] = useState("");
   const router = useRouter();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const setupAdmin = async () => {
+        const adminCreated = await ensureAdminExists();
+        if (adminCreated) {
+            console.log('Admin user check complete. Refetching users.');
+            queryClient.invalidateQueries({ queryKey: ['users'] });
+        }
+    };
+    setupAdmin();
+  }, [queryClient]);
 
   const { data: users, isLoading } = useQuery({
     queryKey: ['users'],

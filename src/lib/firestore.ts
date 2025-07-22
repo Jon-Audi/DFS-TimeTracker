@@ -47,7 +47,7 @@ export interface TimeEntry {
 }
 
 // One-time function to ensure admin user exists
-const ensureAdminUserExists = async () => {
+export const ensureAdminExists = async (): Promise<boolean> => {
     const adminName = "Jon Audiffred";
     const adminPin = "2895";
     const employeesRef = collection(db, 'employees');
@@ -64,15 +64,17 @@ const ensureAdminUserExists = async () => {
                 role: 'Admin'
             });
             console.log("Admin user 'Jon Audiffred' created successfully.");
+            return true; // Indicates that the user was created
         } catch (error) {
             console.error("Error creating admin user:", error);
+            return false;
         }
     }
+    return false; // Indicates that the user already existed
 };
 
 // Functions for Login Page
 export const listUsers = async (): Promise<Employee[]> => {
-    await ensureAdminUserExists(); // Ensure admin exists before listing users
     const employeesCol = collection(db, 'employees');
     const employeeSnapshot = await getDocs(employeesCol);
     const employeeList = employeeSnapshot.docs.map(doc => ({ employeeId: doc.id, ...doc.data() } as Employee));
