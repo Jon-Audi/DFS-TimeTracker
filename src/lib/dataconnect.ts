@@ -24,8 +24,8 @@ export const dataConnect = getDataConnect(app, {}); //connectorConfig);
 
 if (process.env.NODE_ENV === 'development') {
     try {
-        connectDataConnectEmulator(dataConnect, 'localhost', 9399);
-        console.log("Connected to Data Connect emulator");
+        // connectDataConnectEmulator(dataConnect, 'localhost', 9399);
+        console.log("Not connecting to Data Connect emulator");
     } catch (e) {
         console.error("Could not connect to Data Connect emulator", e);
     }

@@ -3,9 +3,15 @@
 
 import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-// import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-// import { dataConnect } from "@/lib/dataconnect";
-// import { queries, mutations } from "@firebasegen/default-connector/react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+    getEmployeeDetails,
+    listTimeEntriesForEmployee,
+    clockIn,
+    clockOut,
+    getLatestTimeEntry,
+    TimeEntry
+} from "@/lib/firestore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -18,75 +24,54 @@ function EmployeeDashboardContent() {
   const searchParams = useSearchParams();
   const employeeId = searchParams.get("employeeId");
   const { toast } = useToast();
-  // const queryClient = useQueryClient();
+  const queryClient = useQueryClient();
 
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  // const employeeDetailsQueryOptions = queries.getEmployeeDetails.getOptions(employeeId ? { employeeId } : undefined);
-  // const { data: employeeDetails, isLoading: isLoadingDetails, error: employeeError } = useQuery({
-  //   ...employeeDetailsQueryOptions,
-  //   queryFn: () => queries.getEmployeeDetails(dataConnect, { employeeId: employeeId! }),
-  //   enabled: !!employeeId,
-  // });
-  const { data: employeeDetails, isLoading: isLoadingDetails, error: employeeError } = {
-    data: { name: "Demo User", timeEntries: []},
-    isLoading: false,
-    error: null
-  };
-
+  const { data: employeeDetails, isLoading: isLoadingDetails, error: employeeError } = useQuery({
+    queryKey: ['employeeDetails', employeeId],
+    queryFn: () => getEmployeeDetails(employeeId!),
+    enabled: !!employeeId,
+  });
 
   const currentWeekStart = startOfWeek(currentTime, { weekStartsOn: 0 }); // Sunday
   const currentWeekEnd = endOfWeek(currentTime, { weekStartsOn: 0 });
 
-  // const weeklyEntriesQueryOptions = queries.listTimeEntriesForEmployee.getOptions(
-  //     employeeId ? {
-  //         employeeId: employeeId!,
-  //         startTime: currentWeekStart.toISOString(),
-  //         endTime: currentWeekEnd.toISOString(),
-  //     } : undefined
-  // );
-  // const { data: weeklyEntries, isLoading: isLoadingEntries } = useQuery({
-  //   ...weeklyEntriesQueryOptions,
-  //   queryFn: () => queries.listTimeEntriesForEmployee(dataConnect, {
-  //     employeeId: employeeId!,
-  //     startTime: currentWeekStart.toISOString(),
-  //     endTime: currentWeekEnd.toISOString(),
-  //   }),
-  //   enabled: !!employeeId,
-  // });
-  const { data: weeklyEntries, isLoading: isLoadingEntries } = { data: [], isLoading: false};
+  const { data: weeklyEntries, isLoading: isLoadingEntries } = useQuery({
+   queryKey: ['weeklyEntries', employeeId, currentWeekStart.toISOString()],
+    queryFn: () => listTimeEntriesForEmployee({
+      employeeId: employeeId!,
+      startTime: currentWeekStart,
+      endTime: currentWeekEnd,
+    }),
+    enabled: !!employeeId,
+  });
 
+  const { mutate: clockInMutation, isPending: isClockingIn } = useMutation({
+    mutationFn: clockIn,
+    onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['employeeDetails', employeeId] });
+        queryClient.invalidateQueries({ queryKey: ['weeklyEntries', employeeId, currentWeekStart.toISOString()] });
+        toast({ title: "Clocked In", description: "Your shift has started." });
+    },
+    onError: (error) => toast({ title: "Error", description: error.message, variant: "destructive" })
+  });
 
-  // const { mutate: clockInMutation, isPending: isClockingIn } = useMutation({
-  //   mutationFn: (vars: typeof mutations.clockIn.input) => mutations.clockIn(dataConnect, vars),
-  //   onSuccess: () => {
-  //       queryClient.invalidateQueries({ queryKey: employeeDetailsQueryOptions.queryKey });
-  //       queryClient.invalidateQueries({ queryKey: weeklyEntriesQueryOptions.queryKey });
-  //       toast({ title: "Clocked In", description: "Your shift has started." });
-  //   },
-  //   onError: (error) => toast({ title: "Error", description: error.message, variant: "destructive" })
-  // });
-  const isClockingIn = false;
+  const { data: latestEntry } = useQuery({
+    queryKey: ['latestEntry', employeeId],
+    queryFn: () => getLatestTimeEntry(employeeId!),
+    enabled: !!employeeId,
+  });
 
-  // const latestEntryQueryOptions = queries.getLatestTimeEntry.getOptions(employeeId ? { employeeId } : undefined);
-  // const { data: latestEntry } = useQuery({
-  //   ...latestEntryQueryOptions,
-  //   queryFn: () => queries.getLatestTimeEntry(dataConnect, { employeeId: employeeId! }),
-  //   enabled: !!employeeId,
-  // });
-  const { data: latestEntry } = { data: null };
-
-
-  // const { mutate: clockOutMutation, isPending: isClockingOut } = useMutation({
-  //    mutationFn: (vars: typeof mutations.clockOut.input) => mutations.clockOut(dataConnect, vars),
-  //    onSuccess: () => {
-  //       queryClient.invalidateQueries({ queryKey: employeeDetailsQueryOptions.queryKey });
-  //       queryClient.invalidateQueries({ queryKey: weeklyEntriesQueryOptions.queryKey });
-  //       toast({ title: "Clocked Out", description: "Your shift has ended." });
-  //   },
-  //   onError: (error) => toast({ title: "Error", description: error.message, variant: "destructive" })
-  // });
-  const isClockingOut = false;
+  const { mutate: clockOutMutation, isPending: isClockingOut } = useMutation({
+     mutationFn: clockOut,
+     onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['employeeDetails', employeeId] });
+        queryClient.invalidateQueries({ queryKey: ['weeklyEntries', employeeId, currentWeekStart.toISOString()] });
+        toast({ title: "Clocked Out", description: "Your shift has ended." });
+    },
+    onError: (error) => toast({ title: "Error", description: error.message, variant: "destructive" })
+  });
 
 
   useEffect(() => {
@@ -110,26 +95,26 @@ function EmployeeDashboardContent() {
      return <div className="min-h-screen flex items-center justify-center"><p>Employee not found.</p></div>
   }
   
-  const lastEntry = employeeDetails?.timeEntries?.[0];
+  const lastEntry = latestEntry;
   const isClockedIn = lastEntry ? !lastEntry.clockOut : false;
 
   const handleClockToggle = () => {
-    toast({ title: "Coming Soon!", description: "Clock-in/out will be enabled soon." });
-    // if (isClockedIn) {
-    //     const latestTimeEntryId = latestEntry?.timeEntryId;
-    //     if (latestTimeEntryId) {
-    //         clockOutMutation({ timeEntryId: latestTimeEntryId });
-    //     } else {
-    //          toast({ title: "Error", description: "Cannot find entry to clock out.", variant: "destructive" })
-    //     }
-    // } else {
-    //     clockInMutation({ employeeId });
-    // }
+    if (isClockedIn) {
+        if (latestEntry?.timeEntryId) {
+            clockOutMutation({ timeEntryId: latestEntry.timeEntryId });
+        } else {
+             toast({ title: "Error", description: "Cannot find entry to clock out.", variant: "destructive" })
+        }
+    } else {
+        clockInMutation({ employeeId });
+    }
   };
 
   const calculateDuration = (start: any, end: any | null): number => {
     if (!end) return 0;
-    return differenceInSeconds(new Date(end), new Date(start)) / 3600;
+    const startTime = start.toDate ? start.toDate() : new Date(start);
+    const endTime = end.toDate ? end.toDate() : new Date(end);
+    return differenceInSeconds(endTime, startTime) / 3600;
   };
 
   const totalHours = weeklyEntries?.reduce((acc, entry) => acc + calculateDuration(entry.clockIn, entry.clockOut), 0) ?? 0;
@@ -215,11 +200,11 @@ function EmployeeDashboardContent() {
                       {isLoadingEntries ? (
                          <TableRow><TableCell colSpan={4} className="h-24 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" /></TableCell></TableRow>
                       ) : weeklyEntries && weeklyEntries.length > 0 ? (
-                        weeklyEntries.map((entry, index) => (
-                          <TableRow key={index}>
-                            <TableCell className="font-medium">{format(new Date(entry.clockIn), 'EEE, MMM d')}</TableCell>
-                            <TableCell>{format(new Date(entry.clockIn), 'p')}</TableCell>
-                            <TableCell>{entry.clockOut ? format(new Date(entry.clockOut), 'p') : (isClockedIn && index === weeklyEntries.length-1 ? 'In Progress...' : '-')}</TableCell>
+                        weeklyEntries.map((entry: TimeEntry) => (
+                          <TableRow key={entry.timeEntryId}>
+                            <TableCell className="font-medium">{format(entry.clockIn.toDate(), 'EEE, MMM d')}</TableCell>
+                            <TableCell>{format(entry.clockIn.toDate(), 'p')}</TableCell>
+                            <TableCell>{entry.clockOut ? format(entry.clockOut.toDate(), 'p') : (isClockedIn && entry.timeEntryId === latestEntry?.timeEntryId ? 'In Progress...' : '-')}</TableCell>
                             <TableCell className="text-right">{calculateDuration(entry.clockIn, entry.clockOut).toFixed(2)}</TableCell>
                           </TableRow>
                         ))

@@ -19,9 +19,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-// import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-// import { dataConnect } from "@/lib/dataconnect";
-// import { mutations, queries } from "@firebasegen/default-connector/react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { listEmployeesWithStatus, createEmployee, TimeEntry } from "@/lib/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { startOfWeek, endOfWeek, differenceInSeconds } from 'date-fns';
 
@@ -34,54 +33,47 @@ export default function AdminDashboard() {
   const [newEmployeePin, setNewEmployeePin] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
-  // const queryClient = useQueryClient();
+  const queryClient = useQueryClient();
 
-  // const { data: employees, isLoading: isLoadingEmployees } = useQuery({
-  //   ...queries.listEmployeesWithStatus.getOptions(),
-  //   queryFn: () => queries.listEmployeesWithStatus(dataConnect)
-  // });
-  const employees: any[] = [];
-  const isLoadingEmployees = false;
+  const { data: employees, isLoading: isLoadingEmployees } = useQuery({
+    queryKey: ['employeesWithStatus'],
+    queryFn: listEmployeesWithStatus
+  });
 
-
-  // const { mutate: addEmployee, isPending: isAddingEmployee } = useMutation({
-  //   mutationFn: (vars: typeof mutations.createEmployee.input) => mutations.createEmployee(dataConnect, vars),
-  //   onSuccess: () => {
-  //       queryClient.invalidateQueries({ queryKey: queries.listEmployeesWithStatus.getOptions().queryKey });
-  //       toast({
-  //           title: "Success",
-  //           description: "New employee has been added.",
-  //       });
-  //       setNewEmployeeName("");
-  //       setNewEmployeeRole(undefined);
-  //       setNewEmployeePin("");
-  //       setIsDialogOpen(false);
-  //   },
-  //   onError: (error) => {
-  //        toast({
-  //           title: "Error",
-  //           description: error.message,
-  //           variant: "destructive",
-  //       });
-  //   }
-  // });
-  const isAddingEmployee = false;
+  const { mutate: addEmployee, isPending: isAddingEmployee } = useMutation({
+    mutationFn: createEmployee,
+    onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['employeesWithStatus'] });
+        queryClient.invalidateQueries({ queryKey: ['users'] });
+        toast({
+            title: "Success",
+            description: "New employee has been added.",
+        });
+        setNewEmployeeName("");
+        setNewEmployeeRole(undefined);
+        setNewEmployeePin("");
+        setIsDialogOpen(false);
+    },
+    onError: (error) => {
+         toast({
+            title: "Error",
+            description: error.message,
+            variant: "destructive",
+        });
+    }
+  });
 
   const handleAddEmployee = () => {
     if (newEmployeeName && newEmployeeRole && newEmployeePin.match(/^\d{4}$/)) {
-        // addEmployee({
-        //     name: newEmployeeName,
-        //     role: newEmployeeRole,
-        //     pin: newEmployeePin,
-        // });
-         toast({
-            title: "Coming Soon!",
-            description: "Adding employees will be enabled soon.",
+        addEmployee({
+            name: newEmployeeName,
+            role: newEmployeeRole,
+            pin: newEmployeePin,
         });
     }
   };
   
-  const calculateWeeklyHours = (timeEntries: readonly { clockIn: any, clockOut: any }[] | null | undefined) => {
+  const calculateWeeklyHours = (timeEntries: TimeEntry[] | undefined) => {
     if (!timeEntries) return 0;
 
     const now = new Date();
@@ -89,23 +81,23 @@ export default function AdminDashboard() {
     const weekEnd = endOfWeek(now, { weekStartsOn: 0 });
 
     const weeklyEntries = timeEntries.filter(entry => {
-        const clockInDate = new Date(entry.clockIn);
+        const clockInDate = entry.clockIn.toDate();
         return clockInDate >= weekStart && clockInDate <= weekEnd;
     });
 
     return weeklyEntries.reduce((total, entry) => {
         if (entry.clockOut) {
-            const clockInDate = new Date(entry.clockIn);
-            const clockOutDate = new Date(entry.clockOut);
+            const clockInDate = entry.clockIn.toDate();
+            const clockOutDate = entry.clockOut.toDate();
             return total + differenceInSeconds(clockOutDate, clockInDate);
         }
         return total;
     }, 0) / 3600;
   };
 
-  const getStatus = (timeEntries: readonly { clockIn: any, clockOut: any }[] | null | undefined) => {
+  const getStatus = (timeEntries: TimeEntry[] | undefined) => {
     if (!timeEntries || timeEntries.length === 0) return 'Clocked Out';
-    const latestEntry = timeEntries[0];
+    const latestEntry = timeEntries[0]; // Assuming entries are sorted descending
     return latestEntry.clockOut ? 'Clocked Out' : 'Clocked In';
   }
 
