@@ -1,11 +1,5 @@
-connectorId: default-connector
-generate:
-  javascriptSdk:
-    outputDir: ../../dataconnect-generated/js/default-connector
-    packageJsonDir: ../..
-    package: '@firebasegen/default-connector'
-    react: true
-operations:
-  sources:
-    - ./Employee.gql
-    - ./TimeEntry.gql
+name: "@firebasegen/default-connector"
+output_dir: "dataconnect-generated/js/default-connector"
+pm:
+  root: "."
+react: true
