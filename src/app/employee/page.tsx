@@ -1,243 +1,245 @@
-
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-    getEmployeeDetails,
-    listTimeEntriesForEmployee,
-    clockIn,
-    clockOut,
-    getLatestTimeEntry,
-    TimeEntry
-} from "@/lib/firestore";
-import { Button } from "@/components/ui/button";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { LogIn, LogOut, Clock, Printer, Loader2 } from "lucide-react";
-import { format, startOfWeek, endOfWeek, differenceInSeconds } from 'date-fns';
+import { Button } from "@/components/ui/button";
+import { UserPlus, Loader2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { listEmployeesWithStatus, createEmployee, TimeEntry, ensureAdminExists } from "@/lib/firestore";
 import { useToast } from "@/hooks/use-toast";
+import { startOfWeek, endOfWeek, differenceInSeconds } from 'date-fns';
+
+type EmployeeRole = 'Yard' | 'Sales' | 'Management' | 'Admin';
 
 
-function EmployeeDashboardContent() {
-  const searchParams = useSearchParams();
-  const employeeId = searchParams.get("employeeId");
+export default function AdminDashboard() {
+  const [newEmployeeName, setNewEmployeeName] = useState("");
+  const [newEmployeeRole, setNewEmployeeRole] = useState<EmployeeRole>();
+  const [newEmployeePin, setNewEmployeePin] = useState("");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const [currentTime, setCurrentTime] = useState(new Date());
-
-  const { data: employeeDetails, isLoading: isLoadingDetails, error: employeeError } = useQuery({
-    queryKey: ['employeeDetails', employeeId],
-    queryFn: () => getEmployeeDetails(employeeId!),
-    enabled: !!employeeId,
-  });
-
-  const currentWeekStart = startOfWeek(currentTime, { weekStartsOn: 0 }); // Sunday
-  const currentWeekEnd = endOfWeek(currentTime, { weekStartsOn: 0 });
-
-  const { data: weeklyEntries, isLoading: isLoadingEntries } = useQuery({
-   queryKey: ['weeklyEntries', employeeId, currentWeekStart.toISOString()],
-    queryFn: () => listTimeEntriesForEmployee({
-      employeeId: employeeId!,
-      startTime: currentWeekStart,
-      endTime: currentWeekEnd,
-    }),
-    enabled: !!employeeId,
-  });
-
-  const { data: latestEntry, refetch: refetchLatestEntry } = useQuery({
-    queryKey: ['latestEntry', employeeId],
-    queryFn: () => getLatestTimeEntry(employeeId!),
-    enabled: !!employeeId,
-  });
-
-  const { mutate: clockInMutation, isPending: isClockingIn } = useMutation({
-    mutationFn: clockIn,
-    onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['employeeDetails', employeeId] });
-        queryClient.invalidateQueries({ queryKey: ['weeklyEntries', employeeId, currentWeekStart.toISOString()] });
-        refetchLatestEntry();
-        toast({ title: "Clocked In", description: "Your shift has started." });
-    },
-    onError: (error) => toast({ title: "Error", description: error.message, variant: "destructive" })
-  });
-
-  const { mutate: clockOutMutation, isPending: isClockingOut } = useMutation({
-     mutationFn: clockOut,
-     onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['employeeDetails', employeeId] });
-        queryClient.invalidateQueries({ queryKey: ['weeklyEntries', employeeId, currentWeekStart.toISOString()] });
-        refetchLatestEntry();
-        toast({ title: "Clocked Out", description: "Your shift has ended." });
-    },
-    onError: (error) => toast({ title: "Error", description: error.message, variant: "destructive" })
-  });
-
-
+  // Run ensureAdminExists on mount
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
+    const initialize = async () => {
+      await ensureAdminExists();
+      queryClient.invalidateQueries({ queryKey: ['employeesWithStatus'] });
+    };
+    initialize();
+  }, [queryClient]);
 
-  if (isLoadingDetails) {
-     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-10 w-10 animate-spin" /></div>;
-  }
-  
-  if (!employeeId) {
-     return <div className="min-h-screen flex items-center justify-center"><p>No employee ID provided.</p></div>
-  }
-  
-  if (employeeError) {
-     return <div className="min-h-screen flex items-center justify-center"><p>Error loading employee: {employeeError.message}</p></div>
-  }
+  const { data: employees, isLoading: isLoadingEmployees } = useQuery({
+    queryKey: ['employeesWithStatus'],
+    queryFn: listEmployeesWithStatus
+  });
 
-  if (!employeeDetails) {
-     return <div className="min-h-screen flex items-center justify-center"><p>Employee not found.</p></div>
-  }
-  
-  const isClockedIn = latestEntry ? !latestEntry.clockOut : false;
+  const { mutate: addEmployee, isPending: isAddingEmployee } = useMutation({
+    mutationFn: createEmployee,
+    onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['employeesWithStatus'] });
+        queryClient.invalidateQueries({ queryKey: ['users'] });
+        toast({
+            title: "Success",
+            description: "New employee has been added.",
+        });
+        setNewEmployeeName("");
+        setNewEmployeeRole(undefined);
+        setNewEmployeePin("");
+        setIsDialogOpen(false);
+    },
+    onError: (error) => {
+         toast({
+            title: "Error",
+            description: error.message,
+            variant: "destructive",
+        });
+    }
+  });
 
-  const handleClockToggle = () => {
-    if (isClockedIn) {
-        if (latestEntry?.timeEntryId && employeeId) {
-            clockOutMutation({ employeeId: employeeId, timeEntryId: latestEntry.timeEntryId });
-        } else {
-             toast({ title: "Error", description: "Cannot find entry to clock out.", variant: "destructive" })
-        }
-    } else {
-       if (employeeId) {
-          clockInMutation({ employeeId });
-       }
+  const handleAddEmployee = () => {
+    if (newEmployeeName && newEmployeeRole && newEmployeePin.match(/^\d{4}$/)) {
+        addEmployee({
+            name: newEmployeeName,
+            role: newEmployeeRole,
+            pin: newEmployeePin,
+        });
     }
   };
+  
+  const calculateWeeklyHours = (timeEntries: TimeEntry[] | undefined) => {
+    if (!timeEntries) return 0;
 
-  const calculateDuration = (start: any, end: any | null): number => {
-    if (!end) return 0;
-    const startTime = start.toDate ? start.toDate() : new Date(start);
-    const endTime = end.toDate ? end.toDate() : new Date(end);
-    return differenceInSeconds(endTime, startTime) / 3600;
+    const now = new Date();
+    const weekStart = startOfWeek(now, { weekStartsOn: 0 });
+    const weekEnd = endOfWeek(now, { weekStartsOn: 0 });
+
+    const weeklyEntries = timeEntries.filter(entry => {
+        if (!entry.clockIn) return false;
+        const clockInDate = entry.clockIn.toDate();
+        return clockInDate >= weekStart && clockInDate <= weekEnd;
+    });
+
+    return weeklyEntries.reduce((total, entry) => {
+        if (entry.clockOut) {
+            const clockInDate = entry.clockIn.toDate();
+            const clockOutDate = entry.clockOut.toDate();
+            return total + differenceInSeconds(clockOutDate, clockInDate);
+        }
+        return total;
+    }, 0) / 3600;
   };
 
-  const totalHours = weeklyEntries?.reduce((acc, entry) => acc + calculateDuration(entry.clockIn, entry.clockOut), 0) ?? 0;
-  const regularHours = Math.min(totalHours, 40);
-  const overtimeHours = Math.max(0, totalHours - 40);
+  const getStatus = (timeEntries: TimeEntry[] | undefined) => {
+    if (!timeEntries || timeEntries.length === 0) return 'Clocked Out';
+    const latestEntry = timeEntries[0]; // Assuming entries are sorted descending
+    return latestEntry.clockOut ? 'Clocked Out' : 'Clocked In';
+  }
 
-  const handlePrint = () => window.print();
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col items-center p-4 sm:p-8">
-      <div className="w-full max-w-4xl mx-auto printable-area">
-        <header className="flex flex-col sm:flex-row justify-between items-center mb-8 print:hidden">
-          <h1 className="text-4xl font-bold text-primary">Welcome, {employeeDetails.name}</h1>
-          <Button onClick={handlePrint} variant="outline">
-            <Printer className="mr-2 h-4 w-4" />
-            Print Timesheet
-          </Button>
+      <div className="w-full max-w-6xl mx-auto">
+        <header className="flex justify-between items-center mb-8">
+          <h1 className="text-4xl font-bold text-primary">Admin Dashboard</h1>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <UserPlus className="mr-2 h-4 w-4" />
+                Add Employee
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Add New Employee</DialogTitle>
+                <DialogDescription>
+                  Enter the details for the new employee.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="name" className="text-right">
+                    Name
+                  </Label>
+                  <Input
+                    id="name"
+                    value={newEmployeeName}
+                    onChange={(e) => setNewEmployeeName(e.target.value)}
+                    className="col-span-3"
+                    placeholder="e.g. John Doe"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="role" className="text-right">
+                    Role
+                  </Label>
+                   <Select onValueChange={(value: EmployeeRole) => setNewEmployeeRole(value)}>
+                      <SelectTrigger className="col-span-3">
+                        <SelectValue placeholder="Select a role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Yard">Yard</SelectItem>
+                        <SelectItem value="Sales">Sales</SelectItem>
+                        <SelectItem value="Management">Management</SelectItem>
+                        <SelectItem value="Admin">Admin</SelectItem>
+                      </SelectContent>
+                    </Select>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="pin" className="text-right">
+                    PIN
+                  </Label>
+                  <Input
+                    id="pin"
+                    type="password"
+                    maxLength={4}
+                    value={newEmployeePin}
+                    onChange={(e) => setNewEmployeePin(e.target.value)}
+                    className="col-span-3"
+                    placeholder="4-digit PIN"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                 <DialogClose asChild>
+                    <Button variant="outline">Cancel</Button>
+                  </DialogClose>
+                <Button onClick={handleAddEmployee} disabled={isAddingEmployee || !newEmployeeName || !newEmployeeRole || !newEmployeePin.match(/^\d{4}$/)}>
+                  {isAddingEmployee && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Employee
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </header>
 
-        <main className="flex flex-col gap-8">
-          <Card className="w-full max-w-md mx-auto shadow-lg transition-all duration-300 print:hidden">
-            <CardHeader className="text-center">
-              <div className="flex justify-center items-center gap-2 text-muted-foreground mb-2">
-                <Clock size={16} />
-                <span>{format(currentTime, 'PPPP p')}</span>
-              </div>
-              <CardTitle className={`text-2xl font-semibold transition-colors ${isClockedIn ? 'text-accent' : 'text-primary'}`}>
-                {isClockedIn ? 'You are Clocked In' : 'You are Clocked Out'}
-              </CardTitle>
+        <main>
+          <Card>
+            <CardHeader>
+              <CardTitle>Employee Time Summary</CardTitle>
+              <CardDescription>Overview of employee hours for the current week.</CardDescription>
             </CardHeader>
-            <CardContent className="flex justify-center">
-              <Button 
-                onClick={handleClockToggle} 
-                disabled={isClockingIn || isClockingOut}
-                className={`w-48 h-12 text-lg font-bold transition-all duration-300 transform hover:scale-105 ${isClockedIn ? 'bg-accent hover:bg-accent/90' : 'bg-primary hover:bg-primary/90'}`}
-              >
-                {(isClockingIn || isClockingOut) ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                    isClockedIn ? <LogOut className="mr-2"/> : <LogIn className="mr-2" />
-                )}
-                {isClockedIn ? 'Clock Out' : 'Clock In'}
-              </Button>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Employee Name</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Total Hours (Week)</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoadingEmployees ? (
+                    <TableRow>
+                        <TableCell colSpan={4} className="h-24 text-center">
+                            <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
+                        </TableCell>
+                    </TableRow>
+                  ) : employees && employees.length > 0 ? (
+                    employees.map((employee) => {
+                      const status = getStatus(employee.timeEntries);
+                      const totalHours = calculateWeeklyHours(employee.timeEntries);
+                      return (
+                        <TableRow key={employee.employeeId}>
+                          <TableCell className="font-medium">{employee.name}</TableCell>
+                          <TableCell>{employee.role}</TableCell>
+                          <TableCell>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${status === 'Clocked In' ? 'bg-accent/20 text-accent' : 'bg-muted text-muted-foreground'}`}>
+                              {status}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right">{totalHours.toFixed(2)}</TableCell>
+                        </TableRow>
+                      );
+                    })
+                  ) : (
+                     <TableRow>
+                        <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                            No employees found. Add one to get started.
+                        </TableCell>
+                     </TableRow>
+                  )}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
-
-          <div className="timesheet">
-            <div className="text-center mb-6">
-              <h2 className="text-3xl font-bold">Weekly Timesheet</h2>
-              <p className="text-muted-foreground">
-                {format(currentWeekStart, 'MMM d, yyyy')} - {format(currentWeekEnd, 'MMM d, yyyy')}
-              </p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-              <Card>
-                <CardHeader><CardTitle>Total Hours</CardTitle><CardDescription>All hours this week</CardDescription></CardHeader>
-                <CardContent><p className="text-3xl font-bold">{totalHours.toFixed(2)}</p></CardContent>
-              </Card>
-              <Card>
-                <CardHeader><CardTitle>Regular Hours</CardTitle><CardDescription>Up to 40 hours</CardDescription></CardHeader>
-                <CardContent><p className="text-3xl font-bold">{regularHours.toFixed(2)}</p></CardContent>
-              </Card>
-              <Card>
-                <CardHeader><CardTitle>Overtime Hours</CardTitle><CardDescription>Hours over 40</CardDescription></CardHeader>
-                <CardContent><p className="text-3xl font-bold text-accent">{overtimeHours.toFixed(2)}</p></CardContent>
-              </Card>
-            </div>
-            
-            <Card>
-              <CardHeader><CardTitle>Time Log</CardTitle><CardDescription>Detailed log of your time entries for this week.</CardDescription></CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Clock In</TableHead>
-                        <TableHead>Clock Out</TableHead>
-                        <TableHead className="text-right">Duration (Hours)</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {isLoadingEntries ? (
-                         <TableRow><TableCell colSpan={4} className="h-24 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" /></TableCell></TableRow>
-                      ) : weeklyEntries && weeklyEntries.length > 0 ? (
-                        weeklyEntries.map((entry: TimeEntry) => (
-                          <TableRow key={entry.timeEntryId}>
-                            <TableCell className="font-medium">{format(entry.clockIn.toDate(), 'EEE, MMM d')}</TableCell>
-                            <TableCell>{format(entry.clockIn.toDate(), 'p')}</TableCell>
-                            <TableCell>{entry.clockOut ? format(entry.clockOut.toDate(), 'p') : (isClockedIn && entry.timeEntryId === latestEntry?.timeEntryId ? 'In Progress...' : '-')}</TableCell>
-                            <TableCell className="text-right">{calculateDuration(entry.clockIn, entry.clockOut).toFixed(2)}</TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow><TableCell colSpan={4} className="h-24 text-center text-muted-foreground">No time entries for this week.</TableCell></TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
         </main>
-        
-        <footer className="text-center text-muted-foreground mt-8 text-sm print:hidden">
-          <p>DFS Time Tracker | © {new Date().getFullYear()}</p>
-        </footer>
       </div>
-
-       <style jsx global>{`
-        @media print { body { background-color: white !important; } .printable-area { max-width: 100%; margin: 0; padding: 0; } .print\\:hidden { display: none !important; } main, .timesheet, .card { color: black !important; background-color: white !important; border: 1px solid #ddd !important; box-shadow: none !important; } .card-title, .card-description, p, th, td, h1, h2 { color: black !important; } .text-muted-foreground { color: #555 !important; } .text-accent { color: #16a085 !important; } .text-primary { color: #2980b9 !important; } }
-      `}</style>
     </div>
   );
-}
-
-export default function EmployeeDashboard() {
-  return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="h-10 w-10 animate-spin" /></div>}>
-      <EmployeeDashboardContent />
-    </Suspense>
-  )
 }
