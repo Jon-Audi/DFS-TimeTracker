@@ -12,7 +12,14 @@ type ClockEvent = {
 
 export default function Kiosk() {
   const [lastEvent, setLastEvent] = useState<ClockEvent | null>(null);
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
+
+  // Effect to prevent hydration mismatch for current time
+  useEffect(() => {
+    setCurrentTime(new Date());
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Effect to set up the Server-Sent Events (SSE) connection
   useEffect(() => {
@@ -44,19 +51,13 @@ export default function Kiosk() {
     };
   }, []); // Empty dependency array ensures this runs only once on mount
 
-  // Effect to update the current time every second
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
   return (
     <div className="relative h-screen w-screen bg-background text-foreground flex flex-col items-center justify-center">
       <div className="text-center">
         <h1 className="text-6xl font-bold text-primary mb-4">DFS Time Tracker Kiosk</h1>
         <p className="text-2xl text-muted-foreground mb-8">Scan your RFID tag to clock in or out.</p>
         <div className="text-8xl font-mono tracking-widest p-4 rounded-lg bg-card border">
-          {currentTime.toLocaleTimeString()}
+          {currentTime ? currentTime.toLocaleTimeString() : '...'}
         </div>
       </div>
       
