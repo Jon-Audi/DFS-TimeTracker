@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { listUsers, ensureAdminExists } from "@/lib/firestore";
+import { listUsers, ensureAdminExists, Employee } from "@/lib/firestore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -18,28 +18,34 @@ export default function LoginPage() {
   const [pin, setPin] = useState("");
   const router = useRouter();
   const { toast } = useToast();
+  const [isInitializing, setIsInitializing] = useState(true);
 
-  const { data: users, isLoading: isLoadingUsers, error } = useQuery({
+  const { data: users, isLoading: isLoadingUsers, error, refetch } = useQuery<Employee[]>({
     queryKey: ['users'],
-    queryFn: async () => {
-        try {
-            await ensureAdminExists();
-            const userList = await listUsers();
-            return userList;
-        } catch (err) {
-            console.error("Failed to setup and fetch users:", err);
-            toast({
-                title: "Error",
-                description: "Could not load user data. Please refresh the page.",
-                variant: "destructive",
-            });
-            throw err; // re-throw error for react-query
-        }
-    },
-    // staleTime ensures we don't refetch immediately on refocus, 
-    // since the user list doesn't change often.
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    queryFn: listUsers,
+    enabled: false, // Initially disable the query
   });
+
+  useEffect(() => {
+    const initializeApp = async () => {
+      try {
+        await ensureAdminExists();
+        await refetch(); // Fetch users after ensuring admin exists
+      } catch (err) {
+        console.error("Failed to setup and fetch users:", err);
+        toast({
+            title: "Error",
+            description: "Could not load application data. Please refresh the page.",
+            variant: "destructive",
+        });
+      } finally {
+        setIsInitializing(false);
+      }
+    };
+
+    initializeApp();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleLogin = () => {
     if (!selectedUserId || !users) return;
@@ -66,6 +72,8 @@ export default function LoginPage() {
       handleLogin();
     }
   };
+  
+  const currentlyLoading = isInitializing || isLoadingUsers;
 
   if (error) {
       return (
@@ -92,12 +100,12 @@ export default function LoginPage() {
         <CardContent className="flex flex-col gap-6">
           <div className="grid w-full items-center gap-1.5">
             <Label htmlFor="user-select">Select User</Label>
-             <Select onValueChange={setSelectedUserId} disabled={isLoadingUsers}>
+             <Select onValueChange={setSelectedUserId} disabled={currentlyLoading}>
               <SelectTrigger id="user-select">
-                <SelectValue placeholder={isLoadingUsers ? "Loading users..." : "Select your name"} />
+                <SelectValue placeholder={currentlyLoading ? "Loading users..." : "Select your name"} />
               </SelectTrigger>
               <SelectContent>
-                {isLoadingUsers ? (
+                {currentlyLoading ? (
                     <div className="flex items-center justify-center p-4">
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         <span>Loading...</span>
@@ -129,8 +137,8 @@ export default function LoginPage() {
             </div>
           )}
 
-          <Button onClick={handleLogin} disabled={!selectedUserId || pin.length !== 4 || isLoadingUsers} className="w-full h-11 text-lg">
-            {isLoadingUsers ? <Loader2 className="mr-2 animate-spin" /> : <LogIn className="mr-2" />}
+          <Button onClick={handleLogin} disabled={!selectedUserId || pin.length !== 4 || currentlyLoading} className="w-full h-11 text-lg">
+            {currentlyLoading ? <Loader2 className="mr-2 animate-spin" /> : <LogIn className="mr-2" />}
             Login
           </Button>
           
