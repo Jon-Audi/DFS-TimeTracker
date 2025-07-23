@@ -5,7 +5,7 @@ import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { UserPlus, Loader2 } from "lucide-react";
+import { UserPlus, Loader2, KeyRound } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -20,18 +20,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { listEmployeesWithStatus, createEmployee, TimeEntry, ensureAdminExists } from "@/lib/firestore";
+import { listEmployeesWithStatus, createEmployee, TimeEntry, ensureAdminExists, assignRfidTag, Employee } from "@/lib/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { startOfWeek, endOfWeek, differenceInSeconds } from 'date-fns';
 
 type EmployeeRole = 'Yard' | 'Sales' | 'Management' | 'Admin';
 
-
 export default function AdminDashboard() {
   const [newEmployeeName, setNewEmployeeName] = useState("");
   const [newEmployeeRole, setNewEmployeeRole] = useState<EmployeeRole>();
   const [newEmployeePin, setNewEmployeePin] = useState("");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isAddEmployeeDialogOpen, setIsAddEmployeeDialogOpen] = useState(false);
+  
+  const [isAssignTagDialogOpen, setIsAssignTagDialogOpen] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [rfidTagId, setRfidTagId] = useState("");
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -53,7 +57,6 @@ export default function AdminDashboard() {
     mutationFn: createEmployee,
     onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ['employeesWithStatus'] });
-        queryClient.invalidateQueries({ queryKey: ['users'] });
         toast({
             title: "Success",
             description: "New employee has been added.",
@@ -61,7 +64,7 @@ export default function AdminDashboard() {
         setNewEmployeeName("");
         setNewEmployeeRole(undefined);
         setNewEmployeePin("");
-        setIsDialogOpen(false);
+        setIsAddEmployeeDialogOpen(false);
     },
     onError: (error) => {
          toast({
@@ -69,6 +72,27 @@ export default function AdminDashboard() {
             description: error.message,
             variant: "destructive",
         });
+    }
+  });
+
+  const { mutate: assignTag, isPending: isAssigningTag } = useMutation({
+    mutationFn: assignRfidTag,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['employeesWithStatus'] });
+      toast({
+        title: "Success",
+        description: "RFID tag has been assigned.",
+      });
+      setIsAssignTagDialogOpen(false);
+      setSelectedEmployee(null);
+      setRfidTagId("");
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   });
 
@@ -80,6 +104,22 @@ export default function AdminDashboard() {
             pin: newEmployeePin,
         });
     }
+  };
+
+  const handleAssignTag = () => {
+    if (selectedEmployee && rfidTagId) {
+      assignTag({ 
+        employeeId: selectedEmployee.employeeId, 
+        name: selectedEmployee.name, 
+        rfidTagId: rfidTagId 
+      });
+    }
+  };
+
+  const openAssignTagDialog = (employee: Employee) => {
+    setSelectedEmployee(employee);
+    setRfidTagId(employee.rfidTagId || "");
+    setIsAssignTagDialogOpen(true);
   };
   
   const calculateWeeklyHours = (timeEntries: TimeEntry[] | undefined) => {
@@ -117,7 +157,7 @@ export default function AdminDashboard() {
       <div className="w-full max-w-6xl mx-auto">
         <header className="flex justify-between items-center mb-8">
           <h1 className="text-4xl font-bold text-primary">Admin Dashboard</h1>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isAddEmployeeDialogOpen} onOpenChange={setIsAddEmployeeDialogOpen}>
             <DialogTrigger asChild>
               <Button>
                 <UserPlus className="mr-2 h-4 w-4" />
@@ -192,7 +232,7 @@ export default function AdminDashboard() {
           <Card>
             <CardHeader>
               <CardTitle>Employee Time Summary</CardTitle>
-              <CardDescription>Overview of employee hours for the current week.</CardDescription>
+              <CardDescription>Overview of employee hours and RFID tags for the current week.</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
@@ -201,13 +241,14 @@ export default function AdminDashboard() {
                     <TableHead>Employee Name</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>RFID Tag</TableHead>
                     <TableHead className="text-right">Total Hours (Week)</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoadingEmployees ? (
                     <TableRow>
-                        <TableCell colSpan={4} className="h-24 text-center">
+                        <TableCell colSpan={5} className="h-24 text-center">
                             <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
                         </TableCell>
                     </TableRow>
@@ -224,13 +265,26 @@ export default function AdminDashboard() {
                               {status}
                             </span>
                           </TableCell>
+                          <TableCell>
+                            {employee.rfidTagId ? (
+                                <div className="flex items-center gap-2">
+                                    <span className="font-mono text-xs bg-muted px-2 py-1 rounded">{employee.rfidTagId}</span>
+                                    <Button variant="outline" size="sm" onClick={() => openAssignTagDialog(employee)}>Change</Button>
+                                </div>
+                            ) : (
+                                <Button variant="secondary" size="sm" onClick={() => openAssignTagDialog(employee)}>
+                                    <KeyRound className="mr-2 h-3 w-3" />
+                                    Assign Tag
+                                </Button>
+                            )}
+                          </TableCell>
                           <TableCell className="text-right">{totalHours.toFixed(2)}</TableCell>
                         </TableRow>
                       );
                     })
                   ) : (
                      <TableRow>
-                        <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                        <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
                             No employees found. Add one to get started.
                         </TableCell>
                      </TableRow>
@@ -241,6 +295,40 @@ export default function AdminDashboard() {
           </Card>
         </main>
       </div>
+
+      <Dialog open={isAssignTagDialogOpen} onOpenChange={setIsAssignTagDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Assign RFID Tag</DialogTitle>
+            <DialogDescription>
+              Enter the UID for the RFID tag to assign to {selectedEmployee?.name}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="rfid-tag" className="text-right">
+                Tag UID
+              </Label>
+              <Input
+                id="rfid-tag"
+                value={rfidTagId}
+                onChange={(e) => setRfidTagId(e.target.value)}
+                className="col-span-3 font-mono"
+                placeholder="Scan or type tag UID"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" onClick={() => setSelectedEmployee(null)}>Cancel</Button>
+            </DialogClose>
+            <Button onClick={handleAssignTag} disabled={isAssigningTag || !rfidTagId}>
+              {isAssigningTag && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Assign Tag
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

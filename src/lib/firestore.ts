@@ -13,7 +13,8 @@ import {
     limit,
     Timestamp,
     updateDoc,
-    serverTimestamp
+    serverTimestamp,
+    setDoc
 } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -36,6 +37,7 @@ export interface Employee {
     role: 'Yard' | 'Sales' | 'Management' | 'Admin';
     pin: string;
     timeEntries?: TimeEntry[];
+    rfidTagId?: string;
 }
 
 export interface TimeEntry {
@@ -44,6 +46,12 @@ export interface TimeEntry {
     clockIn: Timestamp;
     clockOut: Timestamp | null;
 }
+
+export interface RfidTag {
+    employeeId: string;
+    name: string;
+}
+
 
 // One-time function to ensure admin user exists
 export const ensureAdminExists = async (): Promise<boolean> => {
@@ -83,8 +91,24 @@ export const listUsers = async (): Promise<Employee[]> => {
 // Functions for Admin Page
 export const listEmployeesWithStatus = async (): Promise<Employee[]> => {
     const employeesCol = collection(db, 'employees');
-    const employeeSnapshot = await getDocs(employeesCol);
-    const employees = employeeSnapshot.docs.map(doc => ({ employeeId: doc.id, ...doc.data() } as Employee));
+    const rfidTagsCol = collection(db, 'rfidTags');
+    
+    const [employeeSnapshot, rfidTagsSnapshot] = await Promise.all([
+        getDocs(employeesCol),
+        getDocs(rfidTagsCol)
+    ]);
+
+    const rfidTagMap = new Map<string, string>();
+    rfidTagsSnapshot.forEach(doc => {
+        const tagData = doc.data() as RfidTag;
+        rfidTagMap.set(tagData.employeeId, doc.id);
+    });
+
+    const employees = employeeSnapshot.docs.map(doc => {
+        const employeeData = { employeeId: doc.id, ...doc.data() } as Employee;
+        employeeData.rfidTagId = rfidTagMap.get(employeeData.employeeId);
+        return employeeData;
+    });
 
     for (const employee of employees) {
         const timeEntriesCol = collection(db, `employees/${employee.employeeId}/timeEntries`);
@@ -95,9 +119,17 @@ export const listEmployeesWithStatus = async (): Promise<Employee[]> => {
     return employees;
 };
 
-export const createEmployee = async (employeeData: Omit<Employee, 'employeeId'>): Promise<void> => {
+export const createEmployee = async (employeeData: Omit<Employee, 'employeeId' | 'timeEntries' | 'rfidTagId'>): Promise<void> => {
     const employeesCol = collection(db, 'employees');
     await addDoc(employeesCol, employeeData);
+};
+
+export const assignRfidTag = async ({ employeeId, name, rfidTagId }: { employeeId: string, name: string, rfidTagId: string }): Promise<void> => {
+    if (!employeeId || !rfidTagId || !name) {
+        throw new Error("Missing required data to assign RFID tag.");
+    }
+    const rfidTagRef = doc(db, 'rfidTags', rfidTagId);
+    await setDoc(rfidTagRef, { employeeId, name });
 };
 
 
